@@ -9,6 +9,7 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 6. **Semantic Search & Camera Focus** to easily find and focus on modules within large codebases.
 7. **Complexity Heatmap Overlay** which visually encodes file complexity and coupling using size and color-temperature scales.
 8. **Slide-Out Glassmorphic Code Previewer** to view syntax-highlighted code contents directly inside the visualization.
+9. **Spherical Constellation & Cylindrical Morphing View Modes** to transition nodes smoothly between Tower, Sphere, and Cylinder 3D shapes.
 
 ---
 
@@ -29,8 +30,6 @@ Clicking the **3D Orbit** toggle tilts the graph, positioning nodes on depth lay
 
 Nodes and connections in the background are scaled down and faded automatically. Panning and zoom pinch operate in 3D, and **dragging the background orbits the camera** horizontally and vertically around the galaxy.
 
-![3D Orbit Visualization](file:///Users/jasubal/.gemini/antigravity-ide/brain/4e2c3baf-b2ca-4298-8111-90888487e3c7/dash_check_2_1783209575507.png)
-
 ---
 
 ## 3. Step 1: Dependency Path Highlighting
@@ -47,7 +46,7 @@ When a node is selected (by clicking it directly on the canvas or through search
 ## 4. Step 2: Semantic Search & Camera Focus
 
 We have integrated a glassmorphic **Fuzzy Search Bar** inside the visualizer toolbar.
-- **Fuzzy Search Matches**: Typing filters the files, modules, classes, and endpoints reactively, rendering matching results in a floating glass dropdown with file-type legend dots.
+- **Fuzzy Search Matches**: Typing filters the files, modules, classes, and endpoints reactively, rendering matching results in a glass dropdown with file-type legend dots.
 - **Camera Focus Transition**: Selecting any match updates Svelte's selection state and triggers a smooth GSAP camera glide that centers and zooms the viewport directly onto the node.
 - **Responsive Flex Layout**: The search bar participates in the header's flexbox, ensuring a clean horizontal alignment next to the mode toggle and zoom controllers.
 
@@ -71,7 +70,17 @@ Selecting a complexity overlay from the dropdown menu temporarily overrides the 
 ## 6. Step 4: Slide-Out Glassmorphic Code Previewer
 
 When a file node is selected, a prominent **View Source Code** button is rendered inside the Code Insights Panel. Clicking it slides open a full-height glass drawer:
-- **Slide-in Animation**: A smooth GSAP transition slides the drawer from the right edge (`translateX(100%) -> 0%`) and fades in a dark blurred glass backdrop overlay.
-- **Dynamic Secure Fetching**: Svelte requests file contents from `/api/get-file-content` which reads files locally or pulls raw blobs via the GitHub API, utilizing target directory path traversal protection.
+- **Slide-in Animation**: A smooth GSAP transition slides the drawer from the right edge (`translate3d(100%, 0, 0) -> 0%`) and fades in a dark blurred glass backdrop overlay.
+- **Dynamic Secure Fetching**: Svelte requests file contents from `/api/get-file-content` which reads files locally or pulls raw blobs via the GitHub API.
 - **Syntax Highlighting**: Uses PrismJS core library to compile code contents into formatted CSS tokens (supporting Svelte, JS, TS, HTML, CSS, JSON, and C-like languages).
 - **Scrollable Code View**: A dedicated code wrapper maintains correct line heights, a translucent custom scrollbar track, and responsive text sizing.
+
+---
+
+## 7. Step 5: Spherical Constellation & Cylindrical Morphing View Modes
+
+In 3D mode, the **Layout Selector** dropdown lets users morph the node constellation smoothly between different spatial coordinates:
+- **3D Tower Layout**: Arranges nodes by structural type in stacked depth layers, letting force simulation arrange them horizontally.
+- **3D Sphere Layout**: Projects the codebase onto a Fibonacci spherical distribution, creating a neat planetary boundary. D3 forces are paused to lock the geometry.
+- **3D Cylinder Layout**: Spans nodes in a double-helix cylinder spiral vertically, displaying codebase composition like DNA.
+- **GSAP Morphing**: Switching between any layout triggers a 1.35s GSAP animation that smoothly interpolates every node's `(x, y, z)` position. Panning, zooming, and camera orbits remain fully active during and after the morphs.

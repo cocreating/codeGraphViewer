@@ -28,6 +28,47 @@
 
 	// Heatmap states
 	let heatmapMetric = $state('none');
+	let layoutMode = $state('2d'); // '2d', '3d_tower', '3d_sphere', '3d_cylinder'
+
+	// Fibonacci Sphere Coordinate Generator
+	const getSphericalPos = (index, total) => {
+		const w = width > 0 ? width : 800;
+		const h = height > 0 ? height : 600;
+		const R = Math.min(w, h) * 0.32;
+		
+		if (total <= 1) return { tx: w / 2, ty: h / 2, tz: 0 };
+		
+		const y = 1 - (index / (total - 1)) * 2;
+		const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
+		
+		const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+		const angle = goldenAngle * index;
+		
+		return {
+			tx: w / 2 + R * Math.cos(angle) * radiusAtY,
+			ty: h / 2 + R * y,
+			tz: R * Math.sin(angle) * radiusAtY
+		};
+	};
+
+	// Cylindrical Spiral Coordinate Generator
+	const getCylindricalPos = (index, total) => {
+		const w = width > 0 ? width : 800;
+		const h = height > 0 ? height : 600;
+		const R = Math.min(w, h) * 0.28;
+		const H = Math.min(w, h) * 0.55;
+		
+		if (total <= 1) return { tx: w / 2, ty: h / 2, tz: 0 };
+		
+		const heightPercent = index / (total - 1);
+		const angle = index * 0.42;
+		
+		return {
+			tx: w / 2 + R * Math.cos(angle),
+			ty: h / 2 + (heightPercent - 0.5) * H,
+			tz: R * Math.sin(angle)
+		};
+	};
 
 	// Helper score formula
 	const getCompositeScore = (node) => {
@@ -621,6 +662,80 @@
 		};
 	});
 
+	// Animate layout transitions on layoutMode change
+	$effect(() => {
+		const mode = layoutMode;
+		if (localNodes.length === 0) return;
+
+		untrack(() => {
+			if (mode === '2d') {
+				viewMode = '2d';
+				theta = 0;
+				phi = 0;
+				if (simulation) {
+					simulation.alpha(0.35).restart();
+				}
+				// Animate z to 0
+				localNodes.forEach(node => {
+					gsap.killTweensOf(node, 'z');
+					gsap.to(node, {
+						z: 0,
+						duration: 1.1,
+						ease: 'power2.out'
+					});
+				});
+			} else {
+				const prevViewMode = viewMode;
+				viewMode = '3d';
+				
+				if (prevViewMode === '2d') {
+					theta = 0.25;
+					phi = 0.25;
+				}
+
+				if (mode === '3d_tower') {
+					if (simulation) {
+						simulation.alpha(0.35).restart();
+					}
+					localNodes.forEach(node => {
+						gsap.killTweensOf(node, ['x', 'y', 'z']);
+						gsap.to(node, {
+							z: getZDepth(node.type),
+							duration: 1.1,
+							ease: 'power2.out'
+						});
+					});
+				} else if (mode === '3d_sphere') {
+					if (simulation) simulation.stop();
+					localNodes.forEach((node, i) => {
+						const { tx, ty, tz } = getSphericalPos(i, localNodes.length);
+						gsap.killTweensOf(node, ['x', 'y', 'z']);
+						gsap.to(node, {
+							x: tx,
+							y: ty,
+							z: tz,
+							duration: 1.35,
+							ease: 'power2.inOut'
+						});
+					});
+				} else if (mode === '3d_cylinder') {
+					if (simulation) simulation.stop();
+					localNodes.forEach((node, i) => {
+						const { tx, ty, tz } = getCylindricalPos(i, localNodes.length);
+						gsap.killTweensOf(node, ['x', 'y', 'z']);
+						gsap.to(node, {
+							x: tx,
+							y: ty,
+							z: tz,
+							duration: 1.35,
+							ease: 'power2.inOut'
+						});
+					});
+				}
+			}
+		});
+	});
+
 	// GSAP Node Hover Scale transitions
 	$effect(() => {
 		const currentHovered = hoveredNode;
@@ -893,11 +1008,14 @@
 			lastDragPx = px;
 			lastDragPy = py;
 			
-			// Pin coordinate in layout space
-			draggedNode.fx = draggedNode.x;
-			draggedNode.fy = draggedNode.y;
-			
-			if (simulation) simulation.alphaTarget(0.2).restart();
+			if (layoutMode === '2d' || layoutMode === '3d_tower') {
+				draggedNode.fx = draggedNode.x;
+				draggedNode.fy = draggedNode.y;
+				if (simulation) simulation.alphaTarget(0.2).restart();
+			} else {
+				draggedNode.fx = null;
+				draggedNode.fy = null;
+			}
 			
 			event.preventDefault();
 		} else {
@@ -934,12 +1052,17 @@
 				const rx = dpx * cosT + dpy * sinT;
 				const ry = -dpx * sinT + dpy * cosT;
 				
-				draggedNode.fx = (draggedNode.fx !== undefined ? draggedNode.fx : draggedNode.x) + rx;
-				draggedNode.fy = (draggedNode.fy !== undefined ? draggedNode.fy : draggedNode.y) + ry;
+				if (layoutMode === '3d_tower') {
+					draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + rx;
+					draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + ry;
+				} else {
+					draggedNode.x = (draggedNode.x !== undefined ? draggedNode.x : 0) + rx;
+					draggedNode.y = (draggedNode.y !== undefined ? draggedNode.y : 0) + ry;
+				}
 			} else {
 				// Standard 2D drag
-				draggedNode.fx = (draggedNode.fx !== undefined ? draggedNode.fx : draggedNode.x) + dpx;
-				draggedNode.fy = (draggedNode.fy !== undefined ? draggedNode.fy : draggedNode.y) + dpy;
+				draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + dpx;
+				draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + dpy;
 			}
 			
 			lastDragPx = px;
@@ -982,11 +1105,13 @@
 
 	const handleMouseUp = () => {
 		if (isDraggingNode && draggedNode) {
-			draggedNode.fx = null;
-			draggedNode.fy = null;
+			if (layoutMode === '2d' || layoutMode === '3d_tower') {
+				draggedNode.fx = null;
+				draggedNode.fy = null;
+				if (simulation) simulation.alphaTarget(0);
+			}
 			draggedNode = null;
 			isDraggingNode = false;
-			if (simulation) simulation.alphaTarget(0);
 		}
 		isRotatingBackground = false;
 	};
@@ -1027,17 +1152,7 @@
 		}
 	};
 
-	const toggleViewMode = () => {
-		if (viewMode === '2d') {
-			viewMode = '3d';
-			theta = 0.25;
-			phi = 0.25;
-		} else {
-			viewMode = '2d';
-			theta = 0;
-			phi = 0;
-		}
-	};
+
 
 	const handleZoom = (factor) => {
 		if (!canvas) return;
@@ -1171,9 +1286,17 @@
 				<option value="composite">Heatmap: Complexity Index</option>
 			</select>
 
-			<button class="zoom-btn mode-toggle-btn" onclick={toggleViewMode} title="Toggle 2D/3D Mode" style="width: auto; padding: 0 0.55rem; font-size: 0.75rem; font-weight: 600; font-family: var(--font-sans);">
-				{viewMode === '2d' ? '3D Orbit' : '2D Plane'}
-			</button>
+			<!-- View Mode Layout Selector -->
+			<select 
+				class="layout-select" 
+				bind:value={layoutMode}
+				title="Change Visualization Layout"
+			>
+				<option value="2d">Layout: 2D Plane</option>
+				<option value="3d_tower">Layout: 3D Tower</option>
+				<option value="3d_sphere">Layout: 3D Sphere</option>
+				<option value="3d_cylinder">Layout: 3D Cylinder</option>
+			</select>
 			<button class="zoom-btn" onclick={() => handleZoom('in')} title="Zoom In">+</button>
 			<button class="zoom-btn" onclick={() => handleZoom('out')} title="Zoom Out">-</button>
 			<button class="zoom-btn" onclick={resetZoom} title="Fit Content">⛶</button>

@@ -1,9 +1,10 @@
-- [x] Implement Slide-Out Glassmorphic Code Previewer:
-  - [x] Install prismjs syntax highlighter library
-  - [x] Create secure `/api/get-file-content` backend endpoint in SvelteKit
-  - [x] Create CodePreviewer.svelte side-drawer component using GSAP transitions
-  - [x] Add code drawer CSS styles (glassmorphic layout, loading animation) in app.css
-  - [x] Integrate View Source Code button in InsightPanel.svelte
-  - [x] Wire up state and render CodePreviewer in +page.svelte
+- [x] Implement Spherical Constellation & Cylindrical Morphing View Modes:
+  - [x] Add getSphericalPos and getCylindricalPos 3D layout math coordinate mapping generators
+  - [x] Declare layoutMode reactive Svelte state inside GraphCanvas.svelte
+  - [x] Implement GSAP coordinates transition $effect mapping x, y, z smoothly
+  - [x] Selectively pause/resume D3 force simulation depending on layout mode to avoid conflicts
+  - [x] Enable direct node dragging x/y coordinate transformations when simulation is paused
+  - [x] Replace mode toggle button with glassmorphic layout selection dropdown
+  - [x] Apply shared styles for selects inside app.css
 - [x] Verify build compiles successfully (`npm run build`)
 - [x] Validate changes in browser

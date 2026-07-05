@@ -755,8 +755,9 @@ body {
 	max-width: 220px;
 }
 
-/* Complexity Heatmap Overlay Select Dropdown */
-.heatmap-select {
+/* Complexity Heatmap Overlay & Layout Select Dropdowns */
+.heatmap-select,
+.layout-select {
 	background: rgba(10, 8, 16, 0.8);
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	color: var(--text-primary);
@@ -776,13 +777,15 @@ body {
 	background-size: 0.75rem;
 }
 
-.heatmap-select:hover {
+.heatmap-select:hover,
+.layout-select:hover {
 	border-color: var(--accent-purple);
 	box-shadow: 0 0 8px rgba(168, 85, 247, 0.25);
 	background-color: rgba(15, 11, 25, 0.9);
 }
 
-.heatmap-select:focus {
+.heatmap-select:focus,
+.layout-select:focus {
 	border-color: var(--accent-purple);
 	box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
 }

@@ -38,9 +38,9 @@ This document outlines the architecture, accomplishments, and future milestones 
 - **Implementation**: Enabled visual size-scaling and HSL gradient maps based on codebase metrics.
 - **Effects**:
   - Support for multiple metrics: File Size (Bytes), Folder Depth, Imports Count, and Composite Complexity Index.
-  - Normalizes metric values dynamically using reduce operations.
+  - Normalizes metric values dynamically.
   - Overrides node size and color dynamically, highlighting complex source files on a glowing Cyan-to-Red gradient, while shrinking directories and packages to a dark neutral slate background.
-  - Adds a floating canvas HUD legend panel at the bottom-right corner to show active metric labels and scale.
+  - Adds a floating canvas HUD legend panel at the bottom-right corner.
 
 ### 6. Step 4: Slide-Out Glassmorphic Code Previewer
 - **Implementation**: Enabled side-drawer code loading and PrismJS syntax highlighting.
@@ -48,16 +48,14 @@ This document outlines the architecture, accomplishments, and future milestones 
   - Adds a "View Source Code" button in the Code Insights Panel when a file node is selected.
   - Clicking it slides open a full-height glass drawer from the right edge of the viewport.
   - Fetches local or remote files securely, preventing path traversal vulnerabilities.
-  - Syntax highlights code dynamically using PrismJS tomorrow theme across Svelte, JavaScript, TypeScript, CSS, HTML, and JSON.
+  - Syntax highlights code dynamically using PrismJS core bundle tomorrow theme.
   - Supports smooth GSAP closing and backdrop click dismissal.
 
----
-
-## 📅 Future Milestones
-
-### Step 5: Spherical Constellation & Cylindrical Morphing View Modes [PLANNED]
-- **Objective**: Morph nodes smoothly between the default hierarchy tree (Tower) and alternative 3D shapes (Sphere, Cylinder).
-- **Implementation Plan**:
-  1. Add alternative layout position coordinate generators (e.g., spherical coordinate mapping).
-  2. Store multiple coordinate targets (`x2d, y2d`, `x3d, y3d, z3d`, `xSphere, ySphere, zSphere`) on each node.
-  3. Use GSAP to animate node coordinates `(x, y, z)` dynamically during mode switches, creating a fluid, morphing constellation effect.
+### 7. Step 5: Spherical Constellation & Cylindrical Morphing View Modes
+- **Implementation**: Created dynamic coordinate generators for Sphere and Cylinder shapes, and implemented GSAP coordinate interpolation.
+- **Effects**:
+  - Replaced the simple 3D Orbit toggle button with a glassmorphic View Mode Layout dropdown.
+  - **3D Sphere**: Maps node positions onto a Fibonacci spherical distribution, creating a neat sphere constellation. Pauses D3 physics to lock shape.
+  - **3D Cylinder**: Spirals node positions along a vertical double-helix cylinder, mapping codebase architecture like DNA. Pauses D3 physics.
+  - **GSAP Morphing**: Switching modes triggers a 1.35s GSAP coordinates tween that smoothly morphs the layout.
+  - **Interactive Dragging**: Supports direct manual node dragging in Sphere and Cylinder modes without physics interference.
