@@ -60,7 +60,8 @@
 	// Heatmap states
 	let heatmapMetric = $state('none');
 	let colorMode = $state('type'); // 'type', 'role', 'risk'
-	let layoutMode = $state('2d'); // '2d', '3d_tower', '3d_sphere', '3d_cylinder'
+	let layoutMode = $state('force'); // 'force', 'radial', 'dag', 'clusters', 'scatter'
+	let showClusterHulls = $state(true); // toggleable cluster bubble overlay for 'force' and 'clusters' layouts
 
 	const roleColors = {
 		root: '#ffffff',
@@ -93,44 +94,167 @@
 		low: '#22c55e'
 	};
 
-	// Fibonacci Sphere Coordinate Generator
-	const getSphericalPos = (index, total) => {
-		const w = width > 0 ? width : 800;
-		const h = height > 0 ? height : 600;
-		const R = Math.min(w, h) * 0.32;
+	// ─── Layout: Radial File Tree ───────────────────────────────────────────────
+	// Builds a d3.tree() radial layout from hierarchy edges and animates nodes.
+	const applyRadialLayout = (w, h) => {
+		const eid = (v) => (typeof v === 'object' && v !== null ? v.id : v);
+		const hierarchyEdges = localEdges.filter(e => e.type === 'hierarchy');
+		const childrenMap = new Map();
+		hierarchyEdges.forEach(e => {
+			const sid = eid(e.source);
+			const tid = eid(e.target);
+			if (!childrenMap.has(sid)) childrenMap.set(sid, []);
+			childrenMap.get(sid).push(tid);
+		});
+		const rootNode = localNodes.find(n => n.type === 'root') || localNodes[0];
+		if (!rootNode) return;
 
-		if (total <= 1) return { tx: w / 2, ty: h / 2, tz: 0 };
-
-		const y = 1 - (index / (total - 1)) * 2;
-		const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
-
-		const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-		const angle = goldenAngle * index;
-
-		return {
-			tx: w / 2 + R * Math.cos(angle) * radiusAtY,
-			ty: h / 2 + R * y,
-			tz: R * Math.sin(angle) * radiusAtY
-		};
+		function buildTree(nodeId, depth = 0) {
+			return { id: nodeId, children: (depth < 12 ? (childrenMap.get(nodeId) || []).map(c => buildTree(c, depth + 1)) : []) };
+		}
+		const root = d3.hierarchy(buildTree(rootNode.id));
+		const R = Math.min(w, h) * 0.44;
+		d3.tree().size([2 * Math.PI, R]).separation((a, b) => (a.parent === b.parent ? 1 : 1.5) / Math.max(1, a.depth))(root);
+		const cx = w / 2, cy = h / 2;
+		root.descendants().forEach(d => {
+			const node = localNodes.find(n => n.id === d.data.id);
+			if (!node) return;
+			const angle = d.x - Math.PI / 2;
+			const r = d.y;
+			gsap.killTweensOf(node, ['x', 'y']);
+			gsap.to(node, { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle), duration: 1.25, ease: 'power2.inOut' });
+		});
 	};
 
-	// Cylindrical Spiral Coordinate Generator
-	const getCylindricalPos = (index, total) => {
-		const w = width > 0 ? width : 800;
-		const h = height > 0 ? height : 600;
-		const R = Math.min(w, h) * 0.28;
-		const H = Math.min(w, h) * 0.55;
+	// ─── Layout: Dependency DAG (Topological Layers) ─────────────────────────────
+	// Longest-path topological layering of import edges. Left = consumers, Right = leaves.
+	const applyDagLayout = (w, h) => {
+		const eid = (v) => (typeof v === 'object' && v !== null ? v.id : v);
+		const idSet = new Set(localNodes.map(n => n.id));
+		const importEdges = localEdges.filter(e => e.type === 'import' && idSet.has(eid(e.source)) && idSet.has(eid(e.target)));
 
-		if (total <= 1) return { tx: w / 2, ty: h / 2, tz: 0 };
+		const inDegree = new Map(localNodes.map(n => [n.id, 0]));
+		const outEdgesMap = new Map(localNodes.map(n => [n.id, []]));
+		importEdges.forEach(e => {
+			const s = eid(e.source), t = eid(e.target);
+			if (inDegree.has(t)) inDegree.set(t, inDegree.get(t) + 1);
+			if (outEdgesMap.has(s)) outEdgesMap.get(s).push(t);
+		});
 
-		const heightPercent = index / (total - 1);
-		const angle = index * 0.42;
+		// Kahn topological sort → longest path layering
+		const layer = new Map(localNodes.map(n => [n.id, 0]));
+		const tempDeg = new Map(inDegree);
+		const queue = localNodes.filter(n => (tempDeg.get(n.id) || 0) === 0).map(n => n.id);
+		const order = [];
+		while (queue.length > 0) {
+			const cur = queue.shift();
+			order.push(cur);
+			for (const nb of (outEdgesMap.get(cur) || [])) {
+				const deg = (tempDeg.get(nb) || 0) - 1;
+				tempDeg.set(nb, deg);
+				if (deg === 0) queue.push(nb);
+			}
+		}
+		order.forEach(id => {
+			const cur = layer.get(id) || 0;
+			for (const nb of (outEdgesMap.get(id) || [])) {
+				if ((layer.get(nb) || 0) < cur + 1) layer.set(nb, cur + 1);
+			}
+		});
+		// Nodes not reached (cycles) land at maxLayer + 1
+		const maxL = Math.max(0, ...Array.from(layer.values()));
+		localNodes.filter(n => !order.includes(n.id)).forEach(n => layer.set(n.id, maxL + 1));
 
-		return {
-			tx: w / 2 + R * Math.cos(angle),
-			ty: h / 2 + (heightPercent - 0.5) * H,
-			tz: R * Math.sin(angle)
-		};
+		// Group and position
+		const layerGroups = new Map();
+		localNodes.forEach(n => {
+			const l = layer.get(n.id) || 0;
+			if (!layerGroups.has(l)) layerGroups.set(l, []);
+			layerGroups.get(l).push(n);
+		});
+		const numLayers = maxL + 2;
+		const padX = 90, padY = 60;
+		const colW = (w - padX * 2) / Math.max(1, numLayers - 1);
+		layerGroups.forEach((nodes, li) => {
+			// Sort within tier: by role then name for stability
+			nodes.sort((a, b) => (a.role || a.type).localeCompare(b.role || b.type) || a.id.localeCompare(b.id));
+			const x = padX + li * colW;
+			const rowH = (h - padY * 2) / Math.max(1, nodes.length + 1);
+			nodes.forEach((node, i) => {
+				gsap.killTweensOf(node, ['x', 'y']);
+				gsap.to(node, { x, y: padY + (i + 1) * rowH, duration: 1.25, ease: 'power2.inOut' });
+			});
+		});
+	};
+
+	// ─── Layout: Role Cluster Map ─────────────────────────────────────────────────
+	// Nodes animated toward role-labelled cluster centres; simulation runs with cluster force.
+	let clusterCenters = {}; // kept in module scope so hull renderer can read it
+	const applyClusterLayout = (w, h) => {
+		const roles = [...new Set(localNodes.map(n => n.role || n.type).filter(Boolean))];
+		const numR = roles.length;
+		const R = Math.min(w, h) * 0.33;
+		const cx = w / 2, cy = h / 2;
+		clusterCenters = {};
+		roles.forEach((role, i) => {
+			const angle = (i / numR) * 2 * Math.PI - Math.PI / 2;
+			clusterCenters[role] = { x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) };
+		});
+		localNodes.forEach(node => {
+			const role = node.role || node.type;
+			const center = clusterCenters[role] || { x: cx, y: cy };
+			const a = Math.random() * 2 * Math.PI;
+			const d = 15 + Math.random() * 30;
+			gsap.killTweensOf(node, ['x', 'y']);
+			gsap.to(node, { x: center.x + d * Math.cos(a), y: center.y + d * Math.sin(a), duration: 1.1, ease: 'power2.inOut' });
+		});
+		// Restart simulation with cluster force + collision only
+		if (simulation) {
+			simulation
+				.force('link', null)
+				.force('center', null)
+				.force('x', null)
+				.force('y', null)
+				.force('charge', d3.forceManyBody().strength(-20))
+				.force('cluster', (alpha) => {
+					localNodes.forEach(node => {
+						const role = node.role || node.type;
+						const center = clusterCenters[role];
+						if (!center) return;
+						node.vx = (node.vx || 0) + (center.x - node.x) * alpha * 0.25;
+						node.vy = (node.vy || 0) + (center.y - node.y) * alpha * 0.25;
+					});
+				})
+				.alpha(0.6).restart();
+		}
+	};
+
+	// ─── Layout: Risk / Importance Scatter ───────────────────────────────────────
+	// File nodes placed deterministically at (importanceScore, riskScore) coordinates.
+	const applyScatterLayout = (w, h) => {
+		const padX = 110, padY = 90;
+		const plotW = w - padX * 2;
+		const plotH = h - padY * 2;
+		const fileNodes = localNodes.filter(n => n.type === 'file');
+		const otherNodes = localNodes.filter(n => n.type !== 'file');
+		fileNodes.forEach(node => {
+			const ix = Math.min(100, Math.max(0, node.importanceScore || 0));
+			const ry = Math.min(100, Math.max(0, node.riskScore || 0));
+			// Add tiny jitter to separate overlapping nodes
+			const jx = (Math.random() - 0.5) * 18;
+			const jy = (Math.random() - 0.5) * 18;
+			gsap.killTweensOf(node, ['x', 'y']);
+			gsap.to(node, {
+				x: padX + (ix / 100) * plotW + jx,
+				y: h - padY - (ry / 100) * plotH + jy, // inverted: high risk = top
+				duration: 1.25, ease: 'power2.inOut'
+			});
+		});
+		// Stack non-file nodes unobtrusively at bottom-left
+		otherNodes.forEach((node, i) => {
+			gsap.killTweensOf(node, ['x', 'y']);
+			gsap.to(node, { x: padX + (i % 8) * 22, y: h - 28 - Math.floor(i / 8) * 22, duration: 1.0, ease: 'power2.inOut' });
+		});
 	};
 
 	// Helper score formula
@@ -366,50 +490,56 @@
 		}
 		ctx.stroke();
 
-		// Compute 3D perspective projection coordinates if active
-		if (viewMode === '3d') {
-			// Auto spin slowly if not actively dragging or rotating
-			if (!isRotatingBackground && !isDraggingNode) {
-				theta += 0.0015;
-			}
+		// Project every node to screen coords (always 2D — 3D orbit removed)
+		localNodes.forEach(node => {
+			node.px = node.x;
+			node.py = node.y;
+			node.projScale = 1.0;
+			node.depthZ = 0;
+		});
 
-			const cosT = Math.cos(theta);
-			const sinT = Math.sin(theta);
-			const cosP = Math.cos(phi);
-			const sinP = Math.sin(phi);
+		// ── Cluster / Role Hull overlay (drawn in world space, behind edges) ─────
+		if ((layoutMode === 'clusters' || (layoutMode === 'force' && showClusterHulls)) && Object.keys(clusterCenters).length > 0) {
+			ctx.save();
+			ctx.translate(activeTransform.x, activeTransform.y);
+			ctx.scale(activeTransform.k, activeTransform.k);
 
+			const roleGroups = new Map();
 			localNodes.forEach(node => {
-				if (node.x === undefined || node.y === undefined) return;
-
-				// Center coordinates around (w/2, h/2)
-				const dx = node.x - w / 2;
-				const dy = node.y - h / 2;
-				const dz = node.z !== undefined ? node.z : 0;
-
-				// Y-axis rotation (theta)
-				const x1 = dx * cosT - dz * sinT;
-				const z1 = dx * sinT + dz * cosT;
-
-				// X-axis rotation (phi)
-				const y2 = dy * cosP - z1 * sinP;
-				const z2 = dy * sinP + z1 * cosP;
-
-				// Perspective projection
-				const cameraDist = 550;
-				const perspective = cameraDist / (cameraDist + z2);
-
-				node.px = w / 2 + x1 * perspective;
-				node.py = h / 2 + y2 * perspective;
-				node.projScale = perspective;
-				node.depthZ = z2; // save depth for depth sorting
+				const role = node.role || node.type;
+				if (node.px !== undefined && node.py !== undefined) {
+					if (!roleGroups.has(role)) roleGroups.set(role, []);
+					roleGroups.get(role).push([node.px, node.py]);
+				}
 			});
-		} else {
-			localNodes.forEach(node => {
-				node.px = node.x;
-				node.py = node.y;
-				node.projScale = 1.0;
-				node.depthZ = 0;
+			roleGroups.forEach((points, role) => {
+				if (points.length < 3) return;
+				const hull = d3.polygonHull(points);
+				if (!hull) return;
+				const color = roleColors[role] || '#64748b';
+				// Inflate hull by padding each vertex outward from centroid
+				const cxH = hull.reduce((s, p) => s + p[0], 0) / hull.length;
+				const cyH = hull.reduce((s, p) => s + p[1], 0) / hull.length;
+				const inflated = hull.map(p => {
+					const dx = p[0] - cxH, dy = p[1] - cyH;
+					const len = Math.sqrt(dx*dx + dy*dy) || 1;
+					return [p[0] + (dx/len) * 22, p[1] + (dy/len) * 22];
+				});
+				ctx.beginPath();
+				ctx.moveTo(inflated[0][0], inflated[0][1]);
+				inflated.slice(1).forEach(p => ctx.lineTo(p[0], p[1]));
+				ctx.closePath();
+				ctx.fillStyle = hexToRgba(color, 0.055);
+				ctx.strokeStyle = hexToRgba(color, 0.22);
+				ctx.lineWidth = 1.2 / activeTransform.k;
+				ctx.fill();
+				ctx.stroke();
+				// Label at centroid
+				ctx.fillStyle = hexToRgba(color, 0.65);
+				ctx.font = `bold ${Math.max(9, 10 / activeTransform.k)}px "Outfit", sans-serif`;
+				ctx.fillText(role.toUpperCase(), cxH - 12, cyH - 16);
 			});
+			ctx.restore();
 		}
 
 		// Compute active subsets for Dependency Cascades and focus modes
@@ -817,7 +947,81 @@
 			ctx.restore();
 		}
 
+		// ── Layout-specific screen-space HUD overlays ───────────────────────────
+		if (layoutMode === 'scatter') {
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+			const padX = 110, padY = 90;
+			const midX = padX + (w - padX * 2) / 2;
+			const midY = padY + (h - padY * 2) / 2;
+			// Quadrant grid lines
+			ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+			ctx.lineWidth = 1;
+			ctx.setLineDash([5, 5]);
+			ctx.beginPath();
+			ctx.moveTo(midX, padY); ctx.lineTo(midX, h - padY);
+			ctx.moveTo(padX, midY); ctx.lineTo(w - padX, midY);
+			ctx.stroke();
+			ctx.setLineDash([]);
+			// Axis labels
+			ctx.font = 'bold 10px "Outfit", sans-serif';
+			ctx.fillStyle = 'rgba(255,255,255,0.35)';
+			ctx.fillText('← Low Importance', padX + 4, h - padY + 18);
+			ctx.fillText('High Importance →', w - padX - 100, h - padY + 18);
+			ctx.save();
+			ctx.translate(padX - 16, h / 2);
+			ctx.rotate(-Math.PI / 2);
+			ctx.fillText('← Low Risk', -36, 0);
+			ctx.restore();
+			ctx.save();
+			ctx.translate(padX - 16, h / 2 - 80);
+			ctx.rotate(-Math.PI / 2);
+			ctx.fillText('High Risk →', -36, 0);
+			ctx.restore();
+			// Quadrant corner labels
+			const qLabels = [
+				{ x: w - padX - 4, y: padY + 18, text: '🔴 Critical', align: 'right' },
+				{ x: padX + 4,     y: padY + 18, text: '🟠 Fragile',  align: 'left'  },
+				{ x: w - padX - 4, y: h - padY - 8, text: '🟡 Load-bearing', align: 'right' },
+				{ x: padX + 4,     y: h - padY - 8, text: '🟢 Safe',   align: 'left'  },
+			];
+			ctx.font = 'bold 9.5px "Outfit", sans-serif';
+			qLabels.forEach(({ x, y, text, align }) => {
+				ctx.textAlign = align;
+				ctx.fillStyle = 'rgba(255,255,255,0.28)';
+				ctx.fillText(text, x, y);
+			});
+			ctx.textAlign = 'left';
+			ctx.restore();
+		} else if (layoutMode === 'dag') {
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+			ctx.font = 'bold 9px "Outfit", sans-serif';
+			ctx.fillStyle = 'rgba(255,255,255,0.28)';
+			ctx.fillText('← Entry Points', 14, h - 14);
+			ctx.textAlign = 'right';
+			ctx.fillText('Leaf Modules →', w - 14, h - 14);
+			ctx.textAlign = 'left';
+			ctx.fillStyle = 'rgba(255,255,255,0.18)';
+			ctx.fillText('DEPENDENCY LAYERS — import edges flow left → right', 14, 20);
+			ctx.restore();
+		} else if (layoutMode === 'radial') {
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+			ctx.font = 'bold 9px "Outfit", sans-serif';
+			ctx.fillStyle = 'rgba(255,255,255,0.18)';
+			ctx.fillText('RADIAL FILE TREE — root at centre, files at outer ring', 14, 20);
+			ctx.restore();
+		}
+
 		if (localNodes.length > 0) {
+
 			ctx.save();
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
 			const dpr = window.devicePixelRatio || 1;
@@ -916,77 +1120,56 @@
 		};
 	});
 
-	// Animate layout transitions on layoutMode change
+	// Layout transition effect — fires on layoutMode or graphData changes
 	$effect(() => {
 		const mode = layoutMode;
-		const data = graphData; // react to new repo data loads
+		const data = graphData;
 		if (localNodes.length === 0) return;
 
 		untrack(() => {
-			if (mode === '2d') {
-				viewMode = '2d';
-				theta = 0;
-				phi = 0;
+			const w = width > 0 ? width : 800;
+			const h = height > 0 ? height : 600;
+
+			if (mode === 'force') {
+				clusterCenters = {};
+				// Restore full simulation forces if we were in cluster mode
 				if (simulation) {
-					simulation.alpha(0.35).restart();
+					const nodeCount = localNodes.length;
+					simulation
+						.force('cluster', null)
+						.force('link', d3.forceLink(localEdges).id(d => d.id).distance(d => {
+							if (d.type === 'hierarchy') return 55;
+							if (d.type === 'contains') return 28;
+							return 90;
+						}).strength(d => {
+							if (d.type === 'hierarchy') return 0.7;
+							if (d.type === 'contains') return 0.5;
+							return 0.3;
+						}))
+						.force('charge', d3.forceManyBody().strength(d => {
+							const base = d.type === 'root' ? -280 : d.type === 'directory' ? -110 : d.type === 'file' ? -55 : -18;
+							return nodeCount > 80 ? base * 0.4 : base;
+						}))
+						.force('center', d3.forceCenter(w / 2, h / 2))
+						.force('x', d3.forceX(w / 2).strength(nodeCount > 80 ? 0.05 : 0.02))
+						.force('y', d3.forceY(h / 2).strength(nodeCount > 80 ? 0.05 : 0.02))
+						.force('collision', d3.forceCollide().radius(d => getNodeRadius(d.type) + 10))
+						.alpha(0.4).restart();
 				}
-				// Animate z to 0
-				localNodes.forEach(node => {
-					gsap.killTweensOf(node, 'z');
-					gsap.to(node, {
-						z: 0,
-						duration: 1.1,
-						ease: 'power2.out'
-					});
-				});
-			} else {
-				const prevViewMode = viewMode;
-				viewMode = '3d';
-
-				if (prevViewMode === '2d') {
-					theta = 0.25;
-					phi = 0.25;
-				}
-
-				if (mode === '3d_tower') {
-					if (simulation) {
-						simulation.alpha(0.35).restart();
-					}
-					localNodes.forEach(node => {
-						gsap.killTweensOf(node, ['x', 'y', 'z']);
-						gsap.to(node, {
-							z: getZDepth(node.type),
-							duration: 1.1,
-							ease: 'power2.out'
-						});
-					});
-				} else if (mode === '3d_sphere') {
-					if (simulation) simulation.stop();
-					localNodes.forEach((node, i) => {
-						const { tx, ty, tz } = getSphericalPos(i, localNodes.length);
-						gsap.killTweensOf(node, ['x', 'y', 'z']);
-						gsap.to(node, {
-							x: tx,
-							y: ty,
-							z: tz,
-							duration: 1.35,
-							ease: 'power2.inOut'
-						});
-					});
-				} else if (mode === '3d_cylinder') {
-					if (simulation) simulation.stop();
-					localNodes.forEach((node, i) => {
-						const { tx, ty, tz } = getCylindricalPos(i, localNodes.length);
-						gsap.killTweensOf(node, ['x', 'y', 'z']);
-						gsap.to(node, {
-							x: tx,
-							y: ty,
-							z: tz,
-							duration: 1.35,
-							ease: 'power2.inOut'
-						});
-					});
-				}
+			} else if (mode === 'radial') {
+				if (simulation) simulation.stop();
+				clusterCenters = {};
+				applyRadialLayout(w, h);
+			} else if (mode === 'dag') {
+				if (simulation) simulation.stop();
+				clusterCenters = {};
+				applyDagLayout(w, h);
+			} else if (mode === 'clusters') {
+				applyClusterLayout(w, h);
+			} else if (mode === 'scatter') {
+				if (simulation) simulation.stop();
+				clusterCenters = {};
+				applyScatterLayout(w, h);
 			}
 		});
 	});
@@ -1267,11 +1450,10 @@
 		if (closest) {
 			isDraggingNode = true;
 			draggedNode = closest;
-
 			lastDragPx = px;
 			lastDragPy = py;
-
-			if (layoutMode === '2d' || layoutMode === '3d_tower') {
+			// Only pin to simulation when in force/clusters mode (sim is running)
+			if (layoutMode === 'force' || layoutMode === 'clusters') {
 				draggedNode.fx = draggedNode.x;
 				draggedNode.fy = draggedNode.y;
 				if (simulation) simulation.alphaTarget(0.2).restart();
@@ -1303,40 +1485,19 @@
 		const py = transform.invertY(my);
 
 		if (isDraggingNode && draggedNode) {
-			// Mouse translation delta in D3 space
 			const dpx = px - lastDragPx;
 			const dpy = py - lastDragPy;
-
-			if (viewMode === '3d') {
-				// Rotate mouse delta by current horizontal view angle theta so drag matches mouse movement on screen
-				const cosT = Math.cos(theta);
-				const sinT = Math.sin(theta);
-
-				const rx = dpx * cosT + dpy * sinT;
-				const ry = -dpx * sinT + dpy * cosT;
-
-				if (layoutMode === '3d_tower') {
-					draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + rx;
-					draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + ry;
-				} else {
-					draggedNode.x = (draggedNode.x !== undefined ? draggedNode.x : 0) + rx;
-					draggedNode.y = (draggedNode.y !== undefined ? draggedNode.y : 0) + ry;
-				}
-			} else {
-				// Standard 2D drag
+			// Standard 2D drag (no 3D orbit logic needed)
+			if (layoutMode === 'force' || layoutMode === 'clusters') {
 				draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + dpx;
 				draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + dpy;
+			} else {
+				// Free drag for static layouts (radial, dag, scatter)
+				draggedNode.x = (draggedNode.x !== undefined ? draggedNode.x : 0) + dpx;
+				draggedNode.y = (draggedNode.y !== undefined ? draggedNode.y : 0) + dpy;
 			}
-
 			lastDragPx = px;
 			lastDragPy = py;
-		} else if (isRotatingBackground && viewMode === '3d') {
-			const dx = event.clientX - startMouseX;
-			const dy = event.clientY - startMouseY;
-
-			theta = startTheta + dx * 0.008;
-			// Limit vertical orbit vertical pitch to avoid gymbal lock / flipping
-			phi = Math.max(-Math.PI / 3.2, Math.min(Math.PI / 3.2, startPhi + dy * 0.008));
 		} else {
 			// Hover detection
 			let closest = null;
@@ -1368,7 +1529,7 @@
 
 	const handleMouseUp = () => {
 		if (isDraggingNode && draggedNode) {
-			if (layoutMode === '2d' || layoutMode === '3d_tower') {
+			if (layoutMode === 'force' || layoutMode === 'clusters') {
 				draggedNode.fx = null;
 				draggedNode.fy = null;
 				if (simulation) simulation.alphaTarget(0);
@@ -1503,7 +1664,7 @@
 	<div class="visualizer-header">
 		<div class="visualizer-title">
 			<span class="legend-dot dot-file" style="margin-right: 0.15rem;"></span>
-			Interactive Graph Simulation {viewMode === '3d' ? '(3D Orbit)' : '(2D Plane)'}
+			Interactive Graph
 		</div>
 
 		<!-- Search Bar Component -->
@@ -1571,7 +1732,6 @@
 				<option value="composite">Heatmap: Complexity Index</option>
 			</select>
 
-			<!-- View Mode Layout Selector -->
 			<select
 				class="layout-select"
 				bind:value={layoutMode}
@@ -1579,10 +1739,11 @@
 				onmouseenter={() => onHelpKey?.('layout_select')}
 				onmouseleave={() => onHelpKey?.(null)}
 			>
-				<option value="2d">Layout: 2D Plane</option>
-				<option value="3d_tower">Layout: 3D Tower</option>
-				<option value="3d_sphere">Layout: 3D Sphere</option>
-				<option value="3d_cylinder">Layout: 3D Cylinder</option>
+				<option value="force">Layout: Force 2D</option>
+				<option value="radial">Layout: Radial Tree</option>
+				<option value="dag">Layout: Dependency Layers</option>
+				<option value="clusters">Layout: Role Clusters</option>
+				<option value="scatter">Layout: Risk ✕ Importance</option>
 			</select>
 
 			<!-- Interactive Help Toggle -->
