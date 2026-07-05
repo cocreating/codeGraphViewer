@@ -723,7 +723,7 @@
 	// Continuous high-performance render loop
 	let animationFrameId;
 	const runRenderLoop = () => {
-		ticked();
+		untrack(() => ticked());
 		animationFrameId = requestAnimationFrame(runRenderLoop);
 	};
 
