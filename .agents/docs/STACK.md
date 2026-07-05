@@ -14,16 +14,19 @@ This document details the libraries, runtime tools, and custom algorithms that p
 ## 2. Visualizations & Mathematics
 - **HTML5 Canvas (2D Context)**: High-performance renderer capable of displaying hundreds of nodes and reference links at a continuous 60FPS.
 - **D3.js (v7)**:
-  - `d3-force`: Simulates spatial arrangement using gravity, charge, and link distance constraints in 2D Plane and 3D Tower layouts.
+  - `d3-force`: Simulates spatial community layouts via spring forces and charge repulsions. Under 'clusters' mode, uses custom radial cluster center forces.
   - `d3-zoom`: Drives smooth pan and zoom translations.
+  - `d3-polygon`: Implements `d3.polygonHull()` to calculate convex hulls surrounding role clusters.
 - **GSAP (GreenSock)**:
   - Interpolates node spatial coordinate transformations during layout morphing.
   - Drives spring-back selection scaling and hover animation transitions.
   - Controls slide-in animations for the drawer panel.
-- **Custom 3D Projection Engine**:
-  - Implements vertical ($\phi$) and horizontal ($\theta$) camera orbit rotation matrix math.
-  - Applies a painter's depth-sorting algorithm (`Painter's Algorithm`) to draw background nodes before foreground nodes for correct Z-index overlapping.
-  - Projects 3D space `(x, y, z)` onto 2D screen coordinates `(px, py)` using perspective camera distance ratios.
+- **Semantic Layout Algorithms**:
+  - **Radial Tree**: Uses `d3.hierarchy` and `d3.tree` radial projections to organize the filesystem structure.
+  - **Dependency Layers (DAG)**: Kahn's topological sorting algorithm determines horizontal layering tiers for import flow direction.
+  - **Structured Grid**: Groups files by parent directories inside rectangular grid bounding boxes.
+  - **Risk ✕ Importance Scatter**: Coordinates nodes on risk and blast radius metrics.
+  - **Concentric Orbits**: Places nodes in orbital concentric circles based on structural depth levels.
 
 ---
 
@@ -70,7 +73,9 @@ Small directional arrowheads (4 px) indicate flow direction on import and contai
 ### Label Rendering
 - **Visibility threshold**: root and directory labels are always shown; file labels appear at zoom `k > 0.9`; all other types at `k > 1.6`.
 - **Pill background**: a rounded dark rectangle (`rgba(8,6,18, 0.58)`) is drawn behind every ambient label to ensure legibility on busy canvas backgrounds.
-- **Colour scheme**: selected labels are bright white; directory labels use a soft teal tint (`#b2f5ea`); ambient file labels use `#c4bdd4`.
+- **Colour scheme**: selected labels are bright white; directory labels use a soft teal tint (`#b2f5ea`); ambient file labels default to `#c4bdd4` but can be customized with the native color picker.
+- **Constant Screen-Space Scaling**: To prevent labels from ballooning and overlapping when zooming, drawn font sizes, pill margins, offsets, and corner radii scale inversely by `transform.k`.
+- **Text Controls**: Interactive toolbar buttons (`A-` and `A+`) change `labelScale` reactively from 40% to 250% scale. A color picker input binds to `labelColorOverride` to change label colors dynamically.
 
 ### Flow Particles (Configurable)
 Animated dots travel along edges to indicate data/import direction. All visual properties are read from `DEFAULT_APP_CONFIG.flowParticles` (aliased as `PC` in `GraphCanvas.svelte`) and can be changed in `defaults.js` without touching the renderer:

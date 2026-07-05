@@ -262,3 +262,21 @@ We have expanded the visualization options with three additional layouts and sti
 - Draws custom grid boundaries around each folder category with folder name labels in world space.
 - Excellent for reading large codebases like standard maps or books, eliminating overlap entirely.
 
+---
+
+## 19. Canvas Label Controls & Zoom Optimization
+
+We introduced on-screen label optimizations and custom header control widgets:
+
+- **Constant Screen-Space Scaling**: Text labels, pill backgrounds, offsets, and corner radii scale inversely by `transform.k` (e.g. `baseFontSize / activeTransform.k`). This keeps the labels at a perfectly consistent on-screen size (9.5px - 11px) at all zoom levels, completely preventing overlapping and text ballooning when zooming in.
+- **Interactive Font-Size Scaling (A- / A+)**: Reactive buttons added next to zoom controls allow the user to shrink (`A-`) or enlarge (`A+`) label text sizes between 40% and 250% scale. Tooltips display the current percentage.
+- **Custom Label Color Picker**: A native color picker input next to the text controls lets users choose any color theme for the ambient file/module text labels, updating reactively.
+- **Precise Help HUD Tooltips**: Dynamic layout-dependent and mode-dependent tooltips now populate the interactive Help Info HUD (e.g., explaining details for specific layouts, metric heatmaps, color modes, and canvas viewport properties on hover).
+
+---
+
+## 20. Restructured Repository Form Layout
+
+- **Single-Row Controls**: Converted the repository source inputs (`.repo-source-row`) and analysis buttons (`.analysis-actions`) to flexbox layouts. Under GitHub mode, the GitHub URL, PAT input, and Analyze submit button sit aligned on a single row.
+- **Responsive Layout**: Elements wrap vertically on mobile screens (max-width: 48em) to ensure usability.
+
