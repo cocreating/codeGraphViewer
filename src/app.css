@@ -911,6 +911,42 @@ body {
 	color: #ffffff;
 }
 
+/* Color picker input customizations */
+.color-picker-input {
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	width: 1.4rem;
+	height: 1.4rem;
+	border: 1.5px solid rgba(255, 255, 255, 0.15);
+	border-radius: 6px;
+	background: none;
+	cursor: pointer;
+	padding: 0;
+	overflow: hidden;
+	transition: var(--transition-smooth);
+}
+
+.color-picker-input:hover {
+	border-color: var(--accent-purple);
+	box-shadow: var(--shadow-neon);
+}
+
+.color-picker-input::-webkit-color-swatch-wrapper {
+	padding: 0;
+	border-radius: 5px;
+}
+
+.color-picker-input::-webkit-color-swatch {
+	border: none;
+	border-radius: 5px;
+}
+
+.color-picker-input::-moz-color-swatch {
+	border: none;
+	border-radius: 5px;
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
 	width: 6px;

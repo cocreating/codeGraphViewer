@@ -1965,8 +1965,8 @@
 			>
 				<input
 					type="color"
+					class="color-picker-input"
 					bind:value={labelColorOverride}
-					style="width: 1.4rem; height: 1.4rem; border: 1.5px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: none; cursor: pointer; padding: 0;"
 				/>
 			</div>
 
