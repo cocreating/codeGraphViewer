@@ -1,5 +1,14 @@
 <script>
-	let { graphData = { nodes: [], edges: [] }, selectedNode = null, onViewCode, onHoverHelp = null } = $props();
+	let {
+		graphData = { nodes: [], edges: [] },
+		selectedNode = null,
+		focusMode = 'related',
+		onViewCode,
+		onFocusModeChange = null,
+		onOpenGitHub = null,
+		canOpenInGitHub = false,
+		onHoverHelp = null
+	} = $props();
 
 	// Helper to resolve string source/target IDs from D3 edge objects
 	const getSourceId = (edge) => typeof edge.source === 'object' ? edge.source.id : edge.source;
@@ -110,6 +119,43 @@
 						View Source Code
 					</button>
 				{/if}
+			</div>
+
+			<div
+				class="insight-actions"
+				role="none"
+				onmouseenter={() => onHoverHelp?.('insight_quick_actions')}
+				onmouseleave={() => onHoverHelp?.('insights_panel')}
+			>
+				<button
+					type="button"
+					class="insight-action-btn {focusMode === 'dependencies' ? 'active' : ''}"
+					onclick={() => onFocusModeChange?.('dependencies')}
+				>
+					Dependencies
+				</button>
+				<button
+					type="button"
+					class="insight-action-btn {focusMode === 'dependents' ? 'active' : ''}"
+					onclick={() => onFocusModeChange?.('dependents')}
+				>
+					Dependents
+				</button>
+				<button
+					type="button"
+					class="insight-action-btn {focusMode === 'related' ? 'active' : ''}"
+					onclick={() => onFocusModeChange?.('related')}
+				>
+					Related
+				</button>
+				<button
+					type="button"
+					class="insight-action-btn"
+					disabled={!canOpenInGitHub}
+					onclick={() => onOpenGitHub?.(selectedNode)}
+				>
+					GitHub
+				</button>
 			</div>
 
 			<!-- Core Metrics Grid -->

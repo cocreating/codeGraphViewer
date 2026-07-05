@@ -133,6 +133,41 @@
 			description: 'Narrows the file explorer by low, medium, or high deterministic maintenance risk.',
 			tip: 'Tip: Combine risk with role to find files like high-risk API handlers or medium-risk configuration files.'
 		},
+		'navigation_panel': {
+			title: 'Navigation Panel',
+			description: 'Keeps orientation controls close to the graph: breadcrumbs, quick relationship actions, focus modes, recent files, and pinned files.',
+			tip: 'Tip: Use this panel when you feel lost or want to jump back to an important file quickly.'
+		},
+		'breadcrumbs': {
+			title: 'Breadcrumbs',
+			description: 'Shows the selected node path from root to file or folder. Each segment can be clicked to select that level in the graph.',
+			tip: 'Tip: Breadcrumbs are the fastest way to climb from a file back to its folder or repository root.'
+		},
+		'quick_actions': {
+			title: 'Navigation Quick Actions',
+			description: 'Switches the graph to dependencies, dependents, related files, same-role nodes, pins the current node, or opens it on GitHub.',
+			tip: 'Tip: Start with Related, then narrow to Dependencies or Dependents when reviewing impact.'
+		},
+		'focus_mode': {
+			title: 'Graph Focus Mode',
+			description: 'Controls which nodes stay emphasized when a file is selected: related neighborhood, dependencies, dependents, same architecture role, or all nodes.',
+			tip: 'Tip: Same role is useful for comparing files in one layer, such as API handlers or components.'
+		},
+		'recent_files': {
+			title: 'Recently Viewed',
+			description: 'Tracks the latest selected nodes during the current analysis session so you can retrace exploration steps.',
+			tip: 'Tip: Clear recent files when switching from discovery to focused review.'
+		},
+		'pinned_files': {
+			title: 'Pinned Files',
+			description: 'Stores hand-picked nodes for repeated access while exploring a repository or preparing a review path.',
+			tip: 'Tip: Pin entry points, risky files, and files you plan to inspect side by side.'
+		},
+		'insight_quick_actions': {
+			title: 'Insight Quick Actions',
+			description: 'Mirrors the most common graph actions directly inside the selected-node details panel.',
+			tip: 'Tip: Use these buttons after reading the metrics to immediately inspect imports, dependents, or source on GitHub.'
+		},
 		'insights_panel': {
 			title: 'Code Insights Panel',
 			description: 'Displays direct dependencies (outgoing), direct dependents (incoming), impact radius, classes, exports, and API endpoints.',

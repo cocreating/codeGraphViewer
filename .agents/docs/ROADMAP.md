@@ -80,3 +80,12 @@ This document outlines the architecture, accomplishments, and future milestones 
 - **Effects**:
   - Help mode now explains the new repository-intelligence features instead of only graph navigation.
   - Each new help entry describes what evidence is used and how the control should guide exploration.
+
+### 11. Navigation Orientation Layer
+- **Implementation**: Added a dedicated Navigation Panel, page-level recent/pinned state, Open in GitHub action, graph focus modes, and mirrored quick actions inside the Code Insights Panel.
+- **Effects**:
+  - Breadcrumbs let users climb from selected file or symbol nodes back through folders.
+  - Recently viewed and pinned files make exploratory sessions easier to resume.
+  - Focus modes isolate related files, dependencies, dependents, same-role nodes, or the full graph.
+  - GitHub-backed repositories can open selected files or folders directly in GitHub.
+  - Interactive Help now explains breadcrumbs, quick actions, focus modes, recent files, pinned files, and insight quick actions.

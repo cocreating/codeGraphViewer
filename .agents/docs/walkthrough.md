@@ -13,6 +13,7 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 10. **Toggleable Interactive Help Info HUD** to reveal explanations and tips for every UI control as the user moves their cursor.
 11. **Repository Overview Dashboard** with project type, stack detection, language breakdown, entry points, health metrics, risk hotspots, and reading path.
 12. **Smart File Explorer** with role/risk filters, file-level metrics, graph selection, and deterministic risk ranking.
+13. **Navigation Orientation Layer** with breadcrumbs, recent files, pinned files, graph focus modes, and Open in GitHub actions.
 
 ---
 
@@ -121,3 +122,15 @@ The Smart File Explorer turns the graph analysis into a sortable file investigat
 - **Explorer Search**: Matches file name, path, role, language, imports, and exports.
 - **File Metrics**: Shows role, language, size, import count, dependent count, and risk score for each row.
 - **Graph Selection**: Clicking any row selects the same node in the graph and triggers the existing focus/highlight behavior.
+
+---
+
+## 11. Navigation Orientation Layer
+
+The Navigation Panel keeps orientation and review actions visible while exploring:
+- **Breadcrumbs**: Show the selected path from root through folder and file segments, with clickable parent levels.
+- **Quick Actions**: Switch the graph to dependencies, dependents, related files, same-role files, pin the selected node, or open it in GitHub.
+- **Graph Focus Modes**: Control what remains emphasized in the canvas: related neighborhood, dependencies, dependents, same architecture role, or all nodes.
+- **Recently Viewed**: Tracks recently selected nodes during the current analysis session.
+- **Pinned Files**: Lets users keep important files available while jumping around the graph.
+- **Insight Quick Actions**: Mirrors the most common relationship actions in the selected-node details panel.

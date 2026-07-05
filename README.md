@@ -20,6 +20,7 @@ Interactive GitHub and local repository visualizer for exploring project structu
   - risk hotspots
   - suggested reading path
 - Use the Smart File Explorer to filter by role, risk, path, imports, exports, and file metrics.
+- Navigate with breadcrumbs, recently viewed files, pinned files, graph focus modes, and Open in GitHub actions.
 - Enable Interactive Help Mode for contextual explanations of graph controls, dashboard sections, and explorer filters.
 
 ## Tech Stack

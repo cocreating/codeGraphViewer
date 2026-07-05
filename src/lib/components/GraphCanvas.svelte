@@ -6,6 +6,7 @@
 	let {
 		graphData = { nodes: [], edges: [] },
 		selectedNode = null,
+		focusMode = 'related',
 		onSelectNode,
 		onHelpKey = null,
 		helpModeActive = $bindable(false),
@@ -362,47 +363,80 @@
 			});
 		}
 
-		// Compute active subsets for Dependency Cascades
+		// Compute active subsets for Dependency Cascades and focus modes
 		const activeNodes = new Set();
 		const directNodes = new Set();
 		const activeEdges = new Set();
+		const selectedLocalNode = selectedNode ? localNodes.find(node => node.id === selectedNode.id) : null;
 
 		if (selectedNode) {
 			const selId = selectedNode.id;
 			activeNodes.add(selId);
 			directNodes.add(selId);
 
-			// First pass: find direct neighbors
-			localEdges.forEach(edge => {
-				const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
-				const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+			if (focusMode === 'all') {
+				localNodes.forEach(node => activeNodes.add(node.id));
+				localEdges.forEach(edge => activeEdges.add(edge));
+			} else if (focusMode === 'sameRole') {
+				const role = selectedLocalNode?.role || selectedNode.role;
+				localNodes.forEach(node => {
+					if (node.role === role) {
+						activeNodes.add(node.id);
+						directNodes.add(node.id);
+					}
+				});
+				localEdges.forEach(edge => {
+					const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+					const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+					if (activeNodes.has(sId) && activeNodes.has(tId)) activeEdges.add(edge);
+				});
+			} else {
+				// First pass: find direct neighbors
+				localEdges.forEach(edge => {
+					const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+					const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
 
-				if (sId === selId) {
-					directNodes.add(tId);
-					activeNodes.add(tId);
-					activeEdges.add(edge);
-				} else if (tId === selId) {
-					directNodes.add(sId);
-					activeNodes.add(sId);
-					activeEdges.add(edge);
-				}
-			});
-
-			// Second pass: find transitive imports
-			localEdges.forEach(edge => {
-				const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
-				const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-
-				if (edge.type === 'import') {
-					if (directNodes.has(sId) && !activeNodes.has(tId)) {
+					if (focusMode === 'dependencies') {
+						if (edge.type === 'import' && sId === selId) {
+							directNodes.add(tId);
+							activeNodes.add(tId);
+							activeEdges.add(edge);
+						}
+					} else if (focusMode === 'dependents') {
+						if (edge.type === 'import' && tId === selId) {
+							directNodes.add(sId);
+							activeNodes.add(sId);
+							activeEdges.add(edge);
+						}
+					} else if (sId === selId) {
+						directNodes.add(tId);
 						activeNodes.add(tId);
 						activeEdges.add(edge);
-					} else if (directNodes.has(tId) && !activeNodes.has(sId)) {
+					} else if (tId === selId) {
+						directNodes.add(sId);
 						activeNodes.add(sId);
 						activeEdges.add(edge);
 					}
+				});
+
+				// Second pass: find transitive imports only in the general related mode
+				if (focusMode === 'related') {
+					localEdges.forEach(edge => {
+						const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+						const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+
+						if (edge.type === 'import') {
+							if (directNodes.has(sId) && !activeNodes.has(tId)) {
+								activeNodes.add(tId);
+								activeEdges.add(edge);
+							} else if (directNodes.has(tId) && !activeNodes.has(sId)) {
+								activeNodes.add(sId);
+								activeEdges.add(edge);
+							}
+						}
+					});
 				}
-			});
+			}
 		}
 
 		// Apply camera transformations (pan and zoom)

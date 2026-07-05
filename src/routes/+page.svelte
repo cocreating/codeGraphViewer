@@ -6,11 +6,15 @@
 	import HelpInfoHUD from '$lib/components/HelpInfoHUD.svelte';
 	import RepositoryOverview from '$lib/components/RepositoryOverview.svelte';
 	import SmartExplorer from '$lib/components/SmartExplorer.svelte';
+	import NavigationPanel from '$lib/components/NavigationPanel.svelte';
 
 	// Svelte 5 reactive states
 	let graphData = $state({ nodes: [], edges: [] });
 	let selectedNode = $state(null);
 	let showCodePreview = $state(false);
+	let recentNodes = $state([]);
+	let pinnedNodeIds = $state([]);
+	let focusMode = $state('related');
 
 	// Help Info panel states
 	let helpModeActive = $state(false);
@@ -61,6 +65,9 @@
 		error = '';
 		warning = '';
 		selectedNode = null;
+		recentNodes = [];
+		pinnedNodeIds = [];
+		focusMode = 'related';
 
 		try {
 			const response = await fetch('/api/analyze-github', {
@@ -109,6 +116,58 @@
 	function handleSelectPath(path) {
 		const node = graphData.nodes.find(item => item.id === path);
 		if (node) selectedNode = node;
+	}
+
+	function normalizeNodePath(node) {
+		if (!node) return '';
+		return node.file || (node.id ? node.id.split('#')[0] : '');
+	}
+
+	let pinnedNodes = $derived(
+		pinnedNodeIds
+			.map(id => graphData.nodes.find(node => node.id === id))
+			.filter(Boolean)
+	);
+
+	let canOpenInGitHub = $derived(Boolean(graphData.repo?.url && selectedNode && selectedNode.id !== 'root'));
+
+	$effect(() => {
+		const node = selectedNode;
+		untrack(() => {
+			if (!node || node.id === 'root') return;
+			recentNodes = [node, ...recentNodes.filter(item => item.id !== node.id)].slice(0, 10);
+		});
+	});
+
+	function togglePinnedNode(node) {
+		if (!node || node.id === 'root') return;
+		if (pinnedNodeIds.includes(node.id)) {
+			pinnedNodeIds = pinnedNodeIds.filter(id => id !== node.id);
+		} else {
+			pinnedNodeIds = [node.id, ...pinnedNodeIds].slice(0, 12);
+		}
+	}
+
+	function clearRecentNodes() {
+		recentNodes = [];
+	}
+
+	function handleFocusModeChange(nextMode) {
+		focusMode = nextMode;
+	}
+
+	function getGitHubNodeUrl(node) {
+		const repoBase = graphData.repo?.url;
+		const path = normalizeNodePath(node);
+		if (!repoBase || !path) return null;
+		const branch = graphData.repo?.defaultBranch || 'main';
+		const viewType = node.type === 'directory' ? 'tree' : 'blob';
+		return `${repoBase}/${viewType}/${branch}/${path}`;
+	}
+
+	function openInGitHub(node) {
+		const url = getGitHubNodeUrl(node);
+		if (url) window.open(url, '_blank', 'noopener,noreferrer');
 	}
 </script>
 
@@ -256,6 +315,7 @@
 			<GraphCanvas
 				{graphData}
 				{selectedNode}
+				{focusMode}
 				onSelectNode={handleSelectNode}
 				onHelpKey={handleHelpKey}
 				bind:helpModeActive={helpModeActive}
@@ -321,10 +381,28 @@
 				</div>
 			{/if}
 
+			<NavigationPanel
+				{selectedNode}
+				{recentNodes}
+				{pinnedNodes}
+				{focusMode}
+				{canOpenInGitHub}
+				onSelectPath={handleSelectPath}
+				onTogglePin={togglePinnedNode}
+				onClearRecent={clearRecentNodes}
+				onFocusModeChange={handleFocusModeChange}
+				onOpenGitHub={openInGitHub}
+				onHoverHelp={handleHelpKey}
+			/>
+
 			<InsightPanel
 				{graphData}
 				{selectedNode}
+				{focusMode}
 				onViewCode={() => showCodePreview = true}
+				onFocusModeChange={handleFocusModeChange}
+				onOpenGitHub={openInGitHub}
+				canOpenInGitHub={canOpenInGitHub}
 				onHoverHelp={handleHelpKey}
 			/>
 		</aside>

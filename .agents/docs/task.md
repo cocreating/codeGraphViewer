@@ -23,3 +23,11 @@
   - [x] Add Risk Score heatmap mode and risk outlines on graph nodes
   - [x] Expand Interactive Help HUD coverage for overview, explorer, role/risk filters, reading path, stack, language breakdown, and risk hotspots
   - [x] Verify build compiles successfully (`npm run build`)
+- [x] Add navigation orientation layer:
+  - [x] Add NavigationPanel.svelte with breadcrumbs, quick actions, graph focus modes, recent files, and pinned files
+  - [x] Track recently viewed and pinned nodes in page state
+  - [x] Add Open in GitHub action for GitHub-backed repositories
+  - [x] Add focus modes for related nodes, dependencies, dependents, same-role nodes, and full graph view
+  - [x] Mirror dependency/dependent/related/GitHub quick actions inside the Code Insights Panel
+  - [x] Expand Interactive Help HUD coverage for navigation controls
+  - [x] Verify build compiles successfully (`npm run build`)
