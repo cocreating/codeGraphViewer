@@ -191,14 +191,14 @@
 
 	const getNodeRadius = (type) => {
 		switch (type) {
-			case 'root': return 16;
-			case 'directory': return 10;
-			case 'file': return 7.5;
-			case 'class': return 5.5;
-			case 'export': return 4.5;
-			case 'endpoint': return 6.5;
-			case 'package': return 6.5;
-			default: return 5.5;
+			case 'root': return 13;
+			case 'directory': return 7.5;
+			case 'file': return 5.5;
+			case 'class': return 4;
+			case 'export': return 3.5;
+			case 'endpoint': return 5;
+			case 'package': return 5;
+			default: return 4;
 		}
 	};
 
@@ -515,18 +515,18 @@
 			ctx.lineTo(edge.target.px, edge.target.py);
 
 			if (edge.type === 'hierarchy') {
-				ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 * finalOpacity})`;
-				ctx.lineWidth = 1;
+				ctx.strokeStyle = `rgba(255, 255, 255, ${0.025 * finalOpacity})`;
+				ctx.lineWidth = 0.6;
 				ctx.setLineDash([]);
 			} else if (edge.type === 'contains') {
-				ctx.strokeStyle = `rgba(255, 255, 255, ${0.08 * finalOpacity})`;
-				ctx.lineWidth = 1;
-				ctx.setLineDash([2, 3]);
+				ctx.strokeStyle = `rgba(255, 255, 255, ${0.045 * finalOpacity})`;
+				ctx.lineWidth = 0.7;
+				ctx.setLineDash([2, 4]);
 			} else { // import
-				const color = isEdgeActive ? '168, 85, 247' : '168, 85, 247'; // highlight active imports
-				ctx.strokeStyle = `rgba(${color}, ${0.25 * finalOpacity})`;
-				ctx.lineWidth = isEdgeActive ? 1.75 : 1.25;
-				ctx.setLineDash([4, 4]);
+				const color = isEdgeActive ? '168, 85, 247' : '168, 85, 247';
+				ctx.strokeStyle = `rgba(${color}, ${(isEdgeActive ? 0.45 : 0.13) * finalOpacity})`;
+				ctx.lineWidth = isEdgeActive ? 1.4 : 0.9;
+				ctx.setLineDash([4, 5]);
 			}
 			ctx.stroke();
 			ctx.setLineDash([]);
@@ -552,12 +552,12 @@
 					ctx.beginPath();
 					ctx.moveTo(arrowX, arrowY);
 					ctx.lineTo(
-						arrowX - 5 * Math.cos(angle - Math.PI / 8),
-						arrowY - 5 * Math.sin(angle - Math.PI / 8)
+						arrowX - 4 * Math.cos(angle - Math.PI / 8),
+						arrowY - 4 * Math.sin(angle - Math.PI / 8)
 					);
 					ctx.lineTo(
-						arrowX - 5 * Math.cos(angle + Math.PI / 8),
-						arrowY - 5 * Math.sin(angle + Math.PI / 8)
+						arrowX - 4 * Math.cos(angle + Math.PI / 8),
+						arrowY - 4 * Math.sin(angle + Math.PI / 8)
 					);
 					ctx.closePath();
 
@@ -659,7 +659,7 @@
 					}
 					ratio = Math.max(0, Math.min(1, ratio));
 
-					radius = (5.5 + ratio * 14.5) * nodeScale * nodeSelectScale * projScale;
+					radius = (4 + ratio * 12) * nodeScale * nodeSelectScale * projScale;
 					baseColor = getHeatColor(ratio);
 				} else if (node.type !== 'root') {
 					// Shrink and dim background non-file components to let the heatmap files pop
@@ -680,7 +680,7 @@
 
 			// Draw glowing aura
 			ctx.beginPath();
-			ctx.arc(node.px, node.py, radius + (isSelected ? 7 : isHovered ? 4.5 : 2.5), 0, 2 * Math.PI);
+			ctx.arc(node.px, node.py, radius + (isSelected ? 6 : isHovered ? 3.5 : 2), 0, 2 * Math.PI);
 
 			// Increase shadow blur and intensity for high-complexity heat nodes!
 			let auraColor = baseColor;
@@ -718,9 +718,9 @@
 			ctx.stroke();
 
 			// Draw text labels
-			let showLabel = isSelected || isHovered || node.type === 'root' ||
-				(activeTransform.k > 1.2 && (node.type === 'file' || node.type === 'directory') && (!selectedNode || activeNodes.has(node.id))) ||
-				(activeTransform.k > 2.0 && (!selectedNode || activeNodes.has(node.id)));
+			let showLabel = isSelected || isHovered || node.type === 'root' || node.type === 'directory' ||
+				(activeTransform.k > 0.9 && node.type === 'file' && (!selectedNode || activeNodes.has(node.id))) ||
+				(activeTransform.k > 1.6 && (!selectedNode || activeNodes.has(node.id)));
 
 			// Hide non-file labels in heatmap mode to declutter visualization
 			if (heatmapMetric !== 'none' && node.type !== 'file' && node.type !== 'root' && !isSelected && !isHovered) {
@@ -728,20 +728,39 @@
 			}
 
 			if (showLabel) {
+				const fontSize = isSelected ? 11 : isHovered ? 10 : 10;
 				ctx.font = isSelected
-					? 'bold 11px "Outfit", sans-serif'
-					: isHovered ? '500 10px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
+					? `bold ${fontSize}px "Outfit", sans-serif`
+					: isHovered ? `500 ${fontSize}px "Outfit", sans-serif` : `${fontSize}px "Outfit", sans-serif`;
 
 				const textColor = isSelected
 					? '#ffffff'
-					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#e3e1e7' : '#a39cb4');
+					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#b2f5ea' : '#c4bdd4');
+
+				const labelX = node.px + radius + 7;
+				const labelY = node.py + 3;
+
+				// Draw dark pill background for ambient labels (not selected)
+				if (!isSelected) {
+					const metrics = ctx.measureText(node.name);
+					const padH = 3;
+					const padV = 2.5;
+					ctx.fillStyle = `rgba(8, 6, 18, ${0.58 * finalOpacity})`;
+					ctx.beginPath();
+					ctx.roundRect(
+						labelX - padH,
+						labelY - fontSize + 1 - padV,
+						metrics.width + padH * 2,
+						fontSize + padV * 2,
+						3
+					);
+					ctx.fill();
+				}
 
 				ctx.fillStyle = hexToRgba(textColor, finalOpacity);
-
-				ctx.shadowColor = 'black';
-				ctx.shadowBlur = 4;
-
-				ctx.fillText(node.name, node.px + radius + 5, node.py + 3);
+				ctx.shadowColor = 'rgba(0,0,0,0.8)';
+				ctx.shadowBlur = isSelected ? 6 : 0;
+				ctx.fillText(node.name, labelX, labelY);
 				ctx.shadowBlur = 0;
 			}
 		});
@@ -1105,7 +1124,7 @@
 			localNodes.forEach((node, i) => {
 				if (node.x === undefined || node.y === undefined) {
 					const angle = (i / localNodes.length) * 2 * Math.PI;
-					const dist = 50 + Math.random() * 60;
+					const dist = 120 + Math.random() * 180;
 					node.x = w / 2 + dist * Math.cos(angle);
 					node.y = h / 2 + dist * Math.sin(angle);
 				}
@@ -1115,22 +1134,22 @@
 
 			simulation = d3.forceSimulation(localNodes)
 				.force('link', d3.forceLink(localEdges).id(d => d.id).distance(d => {
-					if (d.type === 'hierarchy') return 30;
-					if (d.type === 'contains') return 16;
-					return 52;
+					if (d.type === 'hierarchy') return 55;
+					if (d.type === 'contains') return 28;
+					return 90;
 				}).strength(d => {
-					if (d.type === 'hierarchy') return 1.0;
-					if (d.type === 'contains') return 0.8;
-					return 0.4;
+					if (d.type === 'hierarchy') return 0.7;
+					if (d.type === 'contains') return 0.5;
+					return 0.3;
 				}))
 				.force('charge', d3.forceManyBody().strength(d => {
-					const base = d.type === 'root' ? -150 : d.type === 'directory' ? -60 : d.type === 'file' ? -32 : -10;
+					const base = d.type === 'root' ? -280 : d.type === 'directory' ? -110 : d.type === 'file' ? -55 : -18;
 					return nodeCount > 80 ? base * 0.4 : base;
 				}))
 				.force('center', d3.forceCenter(w / 2, h / 2))
-				.force('x', d3.forceX(w / 2).strength(nodeCount > 80 ? 0.08 : 0.04))
-				.force('y', d3.forceY(h / 2).strength(nodeCount > 80 ? 0.08 : 0.04))
-				.force('collision', d3.forceCollide().radius(d => getNodeRadius(d.type) + 4))
+				.force('x', d3.forceX(w / 2).strength(nodeCount > 80 ? 0.05 : 0.02))
+				.force('y', d3.forceY(h / 2).strength(nodeCount > 80 ? 0.05 : 0.02))
+				.force('collision', d3.forceCollide().radius(d => getNodeRadius(d.type) + 10))
 				.on('tick', ticked);
 
 			// GSAP spawn/entrance animation for nodes
