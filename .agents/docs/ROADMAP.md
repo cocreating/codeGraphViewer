@@ -59,3 +59,24 @@ This document outlines the architecture, accomplishments, and future milestones 
   - **3D Cylinder**: Spirals node positions along a vertical double-helix cylinder, mapping codebase architecture like DNA. Pauses D3 physics.
   - **GSAP Morphing**: Switching modes triggers a 1.35s GSAP coordinates tween that smoothly morphs the layout.
   - **Interactive Dragging**: Supports direct manual node dragging in Sphere and Cylinder modes without physics interference.
+
+### 8. Repository Intelligence Dashboard
+- **Implementation**: Extended `/api/analyze-github` to return repository metadata, detected stack, project type, language breakdown, entry points, main folders, important files, health metrics, risk hotspots, and suggested reading path.
+- **Effects**:
+  - The sidebar now opens with an executive repository overview instead of raw counts only.
+  - GitHub mode preserves stars, forks, open issues, license, default branch, and last activity when available.
+  - Local mode uses manifest and file-path evidence to classify the repository without requiring network metadata.
+  - The analysis remains deterministic and traceable to paths, manifests, imports, sizes, and graph relationships.
+
+### 9. Smart File Explorer & Risk Lens
+- **Implementation**: Added a Smart File Explorer component and annotated file nodes with architecture role, language, size, imports, dependents, importance score, risk score, risk level, and risk reasons.
+- **Effects**:
+  - Files can be filtered by path/import/export search, architecture role, and risk level.
+  - The graph search now matches paths, roles, languages, risk levels, imports, exports, and endpoints.
+  - A new Risk Score heatmap exposes large, highly coupled, widely depended-on, config-sensitive, and API-sensitive files.
+
+### 10. Expanded Interactive Help HUD
+- **Implementation**: Added help coverage for the repository overview, detected stack, language breakdown, entry points, risk hotspots, reading path, main folders, smart explorer, explorer search, role filter, and risk filter.
+- **Effects**:
+  - Help mode now explains the new repository-intelligence features instead of only graph navigation.
+  - Each new help entry describes what evidence is used and how the control should guide exploration.

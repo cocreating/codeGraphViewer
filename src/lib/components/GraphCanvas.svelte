@@ -3,10 +3,10 @@
 	import * as d3 from 'd3';
 	import { gsap } from 'gsap';
 
-	let { 
-		graphData = { nodes: [], edges: [] }, 
-		selectedNode = null, 
-		onSelectNode, 
+	let {
+		graphData = { nodes: [], edges: [] },
+		selectedNode = null,
+		onSelectNode,
 		onHelpKey = null,
 		helpModeActive = $bindable(false),
 		activeHelpKey = $bindable(null)
@@ -14,23 +14,42 @@
 
 	let container = $state(null);
 	let canvas = $state(null);
-	
+
 	// Search states
 	let searchQuery = $state('');
 	let searchFocused = $state(false);
 
 	// Derived search matches (Svelte 5 run-time filter)
-	let searchMatches = $derived(
-		searchQuery.trim() && graphData.nodes
-			? graphData.nodes.filter(node => 
-				node.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-			  ).slice(0, 8)
-			: []
-	);
+	let searchMatches = $derived.by(() => {
+		const query = searchQuery.trim().toLowerCase();
+		if (!query || !graphData.nodes) return [];
+		return graphData.nodes.filter(node => {
+			const searchable = [
+				node.name,
+				node.id,
+				node.type,
+				node.role,
+				node.language,
+				node.riskLevel,
+				...(node.analysis?.imports || []),
+				...(node.analysis?.exports || []),
+				...(node.analysis?.endpoints || [])
+			].filter(Boolean).join(' ').toLowerCase();
+			return searchable.includes(query);
+		}).slice(0, 10);
+	});
 
 	const handleSelectMatch = (match) => {
 		onSelectNode(match);
 		searchQuery = '';
+	};
+
+	const getDotClass = (type) => {
+		if (type === 'directory') return 'dot-dir';
+		if (type === 'root') return 'dot-root';
+		if (type === 'file') return 'dot-file';
+		if (type === 'package') return 'dot-pkg';
+		return `dot-${type}`;
 	};
 
 	// Heatmap states
@@ -42,15 +61,15 @@
 		const w = width > 0 ? width : 800;
 		const h = height > 0 ? height : 600;
 		const R = Math.min(w, h) * 0.32;
-		
+
 		if (total <= 1) return { tx: w / 2, ty: h / 2, tz: 0 };
-		
+
 		const y = 1 - (index / (total - 1)) * 2;
 		const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
-		
+
 		const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 		const angle = goldenAngle * index;
-		
+
 		return {
 			tx: w / 2 + R * Math.cos(angle) * radiusAtY,
 			ty: h / 2 + R * y,
@@ -64,12 +83,12 @@
 		const h = height > 0 ? height : 600;
 		const R = Math.min(w, h) * 0.28;
 		const H = Math.min(w, h) * 0.55;
-		
+
 		if (total <= 1) return { tx: w / 2, ty: h / 2, tz: 0 };
-		
+
 		const heightPercent = index / (total - 1);
 		const angle = index * 0.42;
-		
+
 		return {
 			tx: w / 2 + R * Math.cos(angle),
 			ty: h / 2 + (heightPercent - 0.5) * H,
@@ -92,6 +111,7 @@
 	let maxDepth = $derived(graphData.nodes ? graphData.nodes.reduce((max, n) => Math.max(max, n.id ? n.id.split('/').length - 1 : 0), 1) : 1);
 	let maxImports = $derived(fileNodes.length > 0 ? fileNodes.reduce((max, n) => Math.max(max, n.analysis?.importsCount || 0), 1) : 1);
 	let maxComposite = $derived(fileNodes.length > 0 ? fileNodes.reduce((max, n) => Math.max(max, getCompositeScore(n)), 1) : 1);
+	let maxRisk = $derived(fileNodes.length > 0 ? fileNodes.reduce((max, n) => Math.max(max, n.riskScore || 0), 1) : 1);
 
 	// Heatmap Color scale (Cyan -> Orange -> Red HSL hue interpolation)
 	const getHeatColor = (ratio) => {
@@ -108,7 +128,7 @@
 	// Local non-reactive copies of nodes and edges for the D3 simulation
 	let localNodes = [];
 	let localEdges = [];
-	
+
 	let simulation = null;
 	let transform = $state(d3.zoomIdentity);
 	let width = $state(800);
@@ -119,11 +139,11 @@
 	let viewMode = $state('2d'); // '2d' or '3d'
 	let theta = $state(0);       // Y-axis rotation (horizontal)
 	let phi = $state(0);         // X-axis rotation (vertical)
-	
+
 	let isRotatingBackground = $state(false);
 	let isDraggingNode = $state(false);
 	let draggedNode = null;
-	
+
 	let startMouseX = 0;
 	let startMouseY = 0;
 	let startTheta = 0;
@@ -178,6 +198,43 @@
 	};
 
 	const hexToRgba = (hex, alpha) => {
+		// Handle HSL strings (from heatmap colors)
+		if (hex.startsWith('hsl(')) {
+			// Extract HSL values and convert to RGBA
+			const hslMatch = hex.match(/hsl\((\d+(?:\.\d+)?),\s*(\d+(?:\.\d+)?)%,\s*(\d+(?:\.\d+)?)%\)/);
+			if (hslMatch) {
+				const h = parseFloat(hslMatch[1]);
+				const s = parseFloat(hslMatch[2]) / 100;
+				const l = parseFloat(hslMatch[3]) / 100;
+
+				// HSL to RGB conversion
+				const c = (1 - Math.abs(2 * l - 1)) * s;
+				const x = c * (1 - ((h / 60) % 2 - 1));
+				const m = l - c / 2;
+
+				let r = 0, g = 0, b = 0;
+				if (h >= 0 && h < 60) {
+					r = c; g = x; b = 0;
+				} else if (h >= 60 && h < 120) {
+					r = x; g = c; b = 0;
+				} else if (h >= 120 && h < 180) {
+					r = 0; g = c; b = x;
+				} else if (h >= 180 && h < 240) {
+					r = 0; g = x; b = c;
+				} else if (h >= 240 && h < 300) {
+					r = x; g = 0; b = c;
+				} else {
+					r = c; g = 0; b = x;
+				}
+
+				const rInt = Math.round((r + m) * 255);
+				const gInt = Math.round((g + m) * 255);
+				const bInt = Math.round((b + m) * 255);
+
+				return `rgba(${rInt}, ${gInt}, ${bInt}, ${alpha})`;
+			}
+		}
+
 		if (hex === '#ffffff' || hex === '#f3f1f7') return `rgba(255, 255, 255, ${alpha})`;
 		const colors = {
 			'#a855f7': `rgba(168, 85, 247, ${alpha})`,
@@ -228,13 +285,13 @@
 	const ticked = () => {
 		if (!canvas) return;
 		const ctx = canvas.getContext('2d');
-		
+
 		const w = width > 0 ? width : 800;
 		const h = height > 0 ? height : 600;
 
 		ctx.save();
 		ctx.clearRect(0, 0, w, h);
-		
+
 		let activeTransform = transform;
 		if (isNaN(activeTransform.x) || isNaN(activeTransform.y) || isNaN(activeTransform.k)) {
 			activeTransform = d3.zoomIdentity;
@@ -319,7 +376,7 @@
 			localEdges.forEach(edge => {
 				const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
 				const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-				
+
 				if (sId === selId) {
 					directNodes.add(tId);
 					activeNodes.add(tId);
@@ -335,7 +392,7 @@
 			localEdges.forEach(edge => {
 				const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
 				const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-				
+
 				if (edge.type === 'import') {
 					if (directNodes.has(sId) && !activeNodes.has(tId)) {
 						activeNodes.add(tId);
@@ -377,7 +434,7 @@
 			ctx.beginPath();
 			ctx.moveTo(edge.source.px, edge.source.py);
 			ctx.lineTo(edge.target.px, edge.target.py);
-			
+
 			if (edge.type === 'hierarchy') {
 				ctx.strokeStyle = `rgba(255, 255, 255, ${0.04 * finalOpacity})`;
 				ctx.lineWidth = 1;
@@ -408,7 +465,7 @@
 					const targetSelectScale = edge.target.selectScale !== undefined ? edge.target.selectScale : 1.0;
 					const projScale = edge.target.projScale !== undefined ? edge.target.projScale : 1.0;
 					const r = getNodeRadius(edge.target.type) * targetScale * targetSelectScale * projScale;
-					
+
 					// Place arrowhead at target node boundary
 					const arrowX = edge.target.px - r * Math.cos(angle);
 					const arrowY = edge.target.py - r * Math.sin(angle);
@@ -424,7 +481,7 @@
 						arrowY - 5 * Math.sin(angle + Math.PI / 8)
 					);
 					ctx.closePath();
-					
+
 					const fillOpacity = (edge.type === 'import' ? 0.4 : 0.15) * finalOpacity;
 					ctx.fillStyle = edge.type === 'import' ? `rgba(168, 85, 247, ${fillOpacity})` : `rgba(255, 255, 255, ${fillOpacity})`;
 					ctx.fill();
@@ -439,20 +496,20 @@
 				const speedFactor = (selectedNode && isEdgeActive) ? 1.6 : 1.0;
 				const speed = (edge.type === 'import' ? 0.38 : 0.22) * speedFactor;
 				const indexOffset = (edge.index || 0) * 0.37;
-				
+
 				const numPackets = edge.type === 'import' ? 2 : 1;
 				for (let p = 0; p < numPackets; p++) {
 					const offset = p * 0.5 + indexOffset;
 					const progress = (time * speed + offset) % 1.0;
-					
+
 					const px = edge.source.px + dx * progress;
 					const py = edge.source.py + dy * progress;
-					
+
 					ctx.beginPath();
 					const scaleMultiplier = viewMode === '3d' ? ((edge.source.projScale + edge.target.projScale) / 2) : 1.0;
 					const packetRadius = (edge.type === 'import' ? 2.2 : 1.5) * scaleMultiplier;
 					ctx.arc(px, py, packetRadius, 0, 2 * Math.PI);
-					
+
 					if (edge.type === 'import') {
 						ctx.fillStyle = `rgba(192, 132, 252, ${finalOpacity})`;
 						ctx.shadowColor = '#a855f7';
@@ -473,8 +530,8 @@
 		});
 
 		// 3. Draw Nodes (Depth Sorted in 3D Mode via painter's algorithm)
-		const sortedNodes = viewMode === '3d' 
-			? [...localNodes].sort((a, b) => (b.depthZ || 0) - (a.depthZ || 0)) 
+		const sortedNodes = viewMode === '3d'
+			? [...localNodes].sort((a, b) => (b.depthZ || 0) - (a.depthZ || 0))
 			: localNodes;
 
 		sortedNodes.forEach(node => {
@@ -482,7 +539,7 @@
 
 			const isSelected = selectedNode && selectedNode.id === node.id;
 			const isHovered = hoveredNode && hoveredNode.id === node.id;
-			
+
 			// Highlight opacity sizing
 			let highlightOpacity = 1.0;
 			if (selectedNode) {
@@ -500,7 +557,7 @@
 			let nodeScale = node.scale !== undefined ? node.scale : 1.0;
 			let nodeSelectScale = node.selectScale !== undefined ? node.selectScale : 1.0;
 			let projScale = node.projScale !== undefined ? node.projScale : 1.0;
-			
+
 			let radius = getNodeRadius(node.type) * nodeScale * nodeSelectScale * projScale;
 			let baseColor = getNodeColor(node.type, isSelected, isHovered);
 			let extraOpacityFactor = 1.0;
@@ -516,6 +573,8 @@
 						ratio = depth / maxDepth;
 					} else if (heatmapMetric === 'imports') {
 						ratio = (node.analysis?.importsCount || 0) / maxImports;
+					} else if (heatmapMetric === 'risk') {
+						ratio = (node.riskScore || 0) / maxRisk;
 					} else if (heatmapMetric === 'composite') {
 						ratio = getCompositeScore(node) / maxComposite;
 					}
@@ -532,7 +591,7 @@
 			}
 
 			if (radius <= 0.15) return; // skip rendering if scaled to 0
-			
+
 			let depthOpacity = 1.0;
 			if (viewMode === '3d') {
 				depthOpacity = Math.max(0.25, Math.min(1.0, 1.0 - (node.depthZ + 100) / 320));
@@ -543,7 +602,7 @@
 			// Draw glowing aura
 			ctx.beginPath();
 			ctx.arc(node.px, node.py, radius + (isSelected ? 7 : isHovered ? 4.5 : 2.5), 0, 2 * Math.PI);
-			
+
 			// Increase shadow blur and intensity for high-complexity heat nodes!
 			let auraColor = baseColor;
 			let auraOpacity = (isSelected ? 0.42 : isHovered ? 0.28 : 0.12) * finalOpacity;
@@ -551,6 +610,7 @@
 				const ratio = heatmapMetric === 'size' ? (node.size || 0) / maxFileSize
 					: heatmapMetric === 'depth' ? (node.id ? node.id.split('/').length - 1 : 0) / maxDepth
 					: heatmapMetric === 'imports' ? (node.analysis?.importsCount || 0) / maxImports
+					: heatmapMetric === 'risk' ? (node.riskScore || 0) / maxRisk
 					: getCompositeScore(node) / maxComposite;
 				if (ratio > 0.65) {
 					ctx.shadowColor = baseColor;
@@ -567,37 +627,41 @@
 			ctx.beginPath();
 			ctx.arc(node.px, node.py, radius, 0, 2 * Math.PI);
 			ctx.fillStyle = hexToRgba(baseColor, finalOpacity);
-			ctx.strokeStyle = isSelected 
-				? `rgba(255, 255, 255, ${finalOpacity})` 
+			ctx.strokeStyle = isSelected
+				? `rgba(255, 255, 255, ${finalOpacity})`
+				: node.riskLevel === 'high'
+					? `rgba(239, 68, 68, ${0.75 * finalOpacity})`
+				: node.riskLevel === 'medium'
+					? `rgba(249, 115, 22, ${0.55 * finalOpacity})`
 				: `rgba(255, 255, 255, ${0.15 * finalOpacity})`;
-			ctx.lineWidth = isSelected ? 2 : 1;
+			ctx.lineWidth = isSelected ? 2 : node.riskLevel === 'high' ? 1.75 : node.riskLevel === 'medium' ? 1.35 : 1;
 			ctx.fill();
 			ctx.stroke();
 
 			// Draw text labels
-			let showLabel = isSelected || isHovered || node.type === 'root' || 
+			let showLabel = isSelected || isHovered || node.type === 'root' ||
 				(activeTransform.k > 1.2 && (node.type === 'file' || node.type === 'directory') && (!selectedNode || activeNodes.has(node.id))) ||
 				(activeTransform.k > 2.0 && (!selectedNode || activeNodes.has(node.id)));
-			
+
 			// Hide non-file labels in heatmap mode to declutter visualization
 			if (heatmapMetric !== 'none' && node.type !== 'file' && node.type !== 'root' && !isSelected && !isHovered) {
 				showLabel = false;
 			}
 
 			if (showLabel) {
-				ctx.font = isSelected 
-					? 'bold 11px "Outfit", sans-serif' 
+				ctx.font = isSelected
+					? 'bold 11px "Outfit", sans-serif'
 					: isHovered ? '500 10px "Outfit", sans-serif' : '9px "Outfit", sans-serif';
-				
-				const textColor = isSelected 
-					? '#ffffff' 
+
+				const textColor = isSelected
+					? '#ffffff'
 					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#e3e1e7' : '#a39cb4');
-				
+
 				ctx.fillStyle = hexToRgba(textColor, finalOpacity);
 
 				ctx.shadowColor = 'black';
 				ctx.shadowBlur = 4;
-				
+
 				ctx.fillText(node.name, node.px + radius + 5, node.py + 3);
 				ctx.shadowBlur = 0;
 			}
@@ -620,7 +684,7 @@
 			ctx.fillStyle = 'rgba(12, 10, 20, 0.82)';
 			ctx.strokeStyle = 'rgba(168, 85, 247, 0.25)';
 			ctx.lineWidth = 1.25;
-			
+
 			ctx.beginPath();
 			ctx.roundRect(lx, ly, lw, lh, 8);
 			ctx.fill();
@@ -631,16 +695,17 @@
 			grad.addColorStop(0.0, 'hsl(190, 95%, 60%)');   // Low: Cyan
 			grad.addColorStop(0.5, 'hsl(45, 95%, 60%)');    // Med: Orange/Amber
 			grad.addColorStop(1.0, 'hsl(0, 95%, 60%)');     // High: Neon Red
-			
+
 			ctx.fillStyle = grad;
 			ctx.fillRect(lx + 12, ly + 20, lw - 24, 6);
 
 			// Legend Text
 			ctx.fillStyle = '#ffffff';
 			ctx.font = 'bold 9.5px "Outfit", sans-serif';
-			const metricLabel = heatmapMetric === 'size' ? 'File Size (Bytes)' 
+			const metricLabel = heatmapMetric === 'size' ? 'File Size (Bytes)'
 				: heatmapMetric === 'depth' ? 'Directory Depth'
 				: heatmapMetric === 'imports' ? 'Coupling (Imports Count)'
+				: heatmapMetric === 'risk' ? 'Maintenance Risk Score'
 				: 'Composite Complexity Index';
 			ctx.fillText(metricLabel, lx + 12, ly + 13);
 
@@ -695,7 +760,7 @@
 			} else {
 				const prevViewMode = viewMode;
 				viewMode = '3d';
-				
+
 				if (prevViewMode === '2d') {
 					theta = 0.25;
 					phi = 0.25;
@@ -751,7 +816,7 @@
 			localNodes.forEach(node => {
 				const isHovered = currentHovered && node.id === currentHovered.id;
 				const targetScale = isHovered ? 1.3 : 1.0;
-				
+
 				if (node.scaleTarget !== targetScale) {
 					node.scaleTarget = targetScale;
 					gsap.to(node, {
@@ -771,7 +836,7 @@
 			localNodes.forEach(node => {
 				const isSelected = currentSelected && node.id === currentSelected.id;
 				const targetSelectScale = isSelected ? 1.45 : 1.0;
-				
+
 				if (node.selectScaleTarget !== targetSelectScale) {
 					node.selectScaleTarget = targetSelectScale;
 					gsap.to(node, {
@@ -823,7 +888,7 @@
 					if (node.px === undefined) return;
 					const sx = node.px * transform.k + transform.x;
 					const sy = node.py * transform.k + transform.y;
-					
+
 					const dx = sx - mx;
 					const dy = sy - my;
 					const dist = Math.sqrt(dx*dx + dy*dy);
@@ -942,12 +1007,12 @@
 
 				const graphW = maxX - minX || 1;
 				const graphH = maxY - minY || 1;
-				
+
 				let scale = Math.min(0.85, Math.min(w / graphW, h / graphH));
 				if (isNaN(scale) || scale <= 0 || !isFinite(scale)) {
 					scale = 0.8;
 				}
-				
+
 				const midX = (minX + maxX) / 2;
 				const midY = (minY + maxY) / 2;
 
@@ -968,12 +1033,12 @@
 	// Handle Canvas resizing and update High-DPI resolution
 	$effect(() => {
 		if (!container || !canvas) return;
-		
+
 		const resizeObserver = new ResizeObserver(entries => {
 			for (let entry of entries) {
 				width = entry.contentRect.width || 800;
 				height = entry.contentRect.height || 600;
-				
+
 				const dpr = window.devicePixelRatio || 1;
 				canvas.width = width * dpr;
 				canvas.height = height * dpr;
@@ -991,7 +1056,7 @@
 		const rect = canvas.getBoundingClientRect();
 		const mx = event.clientX - rect.left;
 		const my = event.clientY - rect.top;
-		
+
 		// D3 coordinates for starting points
 		const px = transform.invertX(mx);
 		const py = transform.invertY(my);
@@ -999,18 +1064,18 @@
 		// Find the node under the cursor using projected coordinates
 		let closest = null;
 		let minDist = 22; // search radius in pixels
-		
+
 		localNodes.forEach(node => {
 			if (node.x === undefined || node.px === undefined) return;
-			
+
 			// Map node projected coordinate to screen space
 			const sx = node.px * transform.k + transform.x;
 			const sy = node.py * transform.k + transform.y;
-			
+
 			const dx = sx - mx;
 			const dy = sy - my;
 			const dist = Math.sqrt(dx*dx + dy*dy);
-			
+
 			if (dist < minDist) {
 				minDist = dist;
 				closest = node;
@@ -1020,10 +1085,10 @@
 		if (closest) {
 			isDraggingNode = true;
 			draggedNode = closest;
-			
+
 			lastDragPx = px;
 			lastDragPy = py;
-			
+
 			if (layoutMode === '2d' || layoutMode === '3d_tower') {
 				draggedNode.fx = draggedNode.x;
 				draggedNode.fy = draggedNode.y;
@@ -1032,7 +1097,7 @@
 				draggedNode.fx = null;
 				draggedNode.fy = null;
 			}
-			
+
 			event.preventDefault();
 		} else {
 			// Clicked background: start 3D horizontal/vertical rotation
@@ -1059,15 +1124,15 @@
 			// Mouse translation delta in D3 space
 			const dpx = px - lastDragPx;
 			const dpy = py - lastDragPy;
-			
+
 			if (viewMode === '3d') {
 				// Rotate mouse delta by current horizontal view angle theta so drag matches mouse movement on screen
 				const cosT = Math.cos(theta);
 				const sinT = Math.sin(theta);
-				
+
 				const rx = dpx * cosT + dpy * sinT;
 				const ry = -dpx * sinT + dpy * cosT;
-				
+
 				if (layoutMode === '3d_tower') {
 					draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + rx;
 					draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + ry;
@@ -1080,13 +1145,13 @@
 				draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + dpx;
 				draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + dpy;
 			}
-			
+
 			lastDragPx = px;
 			lastDragPy = py;
 		} else if (isRotatingBackground && viewMode === '3d') {
 			const dx = event.clientX - startMouseX;
 			const dy = event.clientY - startMouseY;
-			
+
 			theta = startTheta + dx * 0.008;
 			// Limit vertical orbit vertical pitch to avoid gymbal lock / flipping
 			phi = Math.max(-Math.PI / 3.2, Math.min(Math.PI / 3.2, startPhi + dy * 0.008));
@@ -1094,17 +1159,17 @@
 			// Hover detection
 			let closest = null;
 			let minDist = 22; // search radius in pixels
-			
+
 			localNodes.forEach(node => {
 				if (node.x === undefined || node.px === undefined) return;
-				
+
 				const sx = node.px * transform.k + transform.x;
 				const sy = node.py * transform.k + transform.y;
-				
+
 				const dx = sx - mx;
 				const dy = sy - my;
 				const dist = Math.sqrt(dx*dx + dy*dy);
-				
+
 				if (dist < minDist) {
 					minDist = dist;
 					closest = node;
@@ -1135,7 +1200,7 @@
 	const handleClick = (event) => {
 		// Prevent clicked event when finishing rotation or drag
 		if (isDraggingNode || isRotatingBackground) return;
-		
+
 		if (!canvas) return;
 		const rect = canvas.getBoundingClientRect();
 		const mx = event.clientX - rect.left;
@@ -1143,17 +1208,17 @@
 
 		let closest = null;
 		let minDist = 22; // search radius in pixels
-		
+
 		localNodes.forEach(node => {
 			if (node.x === undefined || node.px === undefined) return;
-			
+
 			const sx = node.px * transform.k + transform.x;
 			const sy = node.py * transform.k + transform.y;
-			
+
 			const dx = sx - mx;
 			const dy = sy - my;
 			const dist = Math.sqrt(dx*dx + dy*dy);
-			
+
 			if (dist < minDist) {
 				minDist = dist;
 				closest = node;
@@ -1173,7 +1238,7 @@
 	const handleZoom = (factor) => {
 		if (!canvas) return;
 		const targetScale = factor === 'in' ? transform.k * 1.4 : transform.k / 1.4;
-		
+
 		if (cameraTween) cameraTween.kill();
 
 		const w = width > 0 ? width : 800;
@@ -1212,12 +1277,12 @@
 		const graphH = maxY - minY || 1;
 		const w = width > 0 ? width : 800;
 		const h = height > 0 ? height : 600;
-		
+
 		let scale = Math.min(0.85, Math.min(w / graphW, h / graphH));
 		if (isNaN(scale) || scale <= 0 || !isFinite(scale)) {
 			scale = 0.8;
 		}
-		
+
 		const midX = (minX + maxX) / 2;
 		const midY = (minY + maxY) / 2;
 
@@ -1260,8 +1325,8 @@
 		</div>
 
 		<!-- Search Bar Component -->
-		<div 
-			class="search-container" 
+		<div
+			class="search-container"
 			style="position: relative; margin: 0 1.25rem; flex: 1; max-width: 250px;"
 			role="search"
 			onmouseenter={() => onHelpKey?.('search_bar')}
@@ -1278,15 +1343,15 @@
 			{#if searchFocused && searchMatches.length > 0}
 				<div class="search-dropdown">
 					{#each searchMatches as match}
-						<button 
-							class="search-item" 
+						<button
+							class="search-item"
 							type="button"
 							onclick={() => handleSelectMatch(match)}
 						>
-							<span class="legend-dot dot-{match.type}" style="margin-right: 0.45rem; scale: 0.95; flex-shrink: 0;"></span>
+							<span class="legend-dot {getDotClass(match.type)}" style="margin-right: 0.45rem; scale: 0.95; flex-shrink: 0;"></span>
 							<div style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.05rem; overflow: hidden; width: 100%;">
 								<span class="search-item-name">{match.name}</span>
-								<span class="search-item-path">{match.id}</span>
+								<span class="search-item-path">{match.role || match.type} | {match.riskLevel || 'n/a'} | {match.id}</span>
 							</div>
 						</button>
 					{/each}
@@ -1296,8 +1361,8 @@
 
 		<div class="zoom-controls">
 			<!-- Complexity Heatmap selector -->
-			<select 
-				class="heatmap-select" 
+			<select
+				class="heatmap-select"
 				bind:value={heatmapMetric}
 				title="Toggle Complexity Heatmap"
 				onmouseenter={() => onHelpKey?.('heatmap_select')}
@@ -1307,12 +1372,13 @@
 				<option value="size">Heatmap: File Size</option>
 				<option value="depth">Heatmap: Folder Depth</option>
 				<option value="imports">Heatmap: Coupling (Imports)</option>
+				<option value="risk">Heatmap: Risk Score</option>
 				<option value="composite">Heatmap: Complexity Index</option>
 			</select>
 
 			<!-- View Mode Layout Selector -->
-			<select 
-				class="layout-select" 
+			<select
+				class="layout-select"
 				bind:value={layoutMode}
 				title="Change Visualization Layout"
 				onmouseenter={() => onHelpKey?.('layout_select')}
@@ -1323,11 +1389,11 @@
 				<option value="3d_sphere">Layout: 3D Sphere</option>
 				<option value="3d_cylinder">Layout: 3D Cylinder</option>
 			</select>
-			
+
 			<!-- Interactive Help Toggle -->
-			<button 
-				class="zoom-btn {helpModeActive ? 'active-help' : ''}" 
-				onclick={() => { helpModeActive = !helpModeActive; if (!helpModeActive) { activeHelpKey = null; onHelpKey?.(null); } }} 
+			<button
+				class="zoom-btn {helpModeActive ? 'active-help' : ''}"
+				onclick={() => { helpModeActive = !helpModeActive; if (!helpModeActive) { activeHelpKey = null; onHelpKey?.(null); } }}
 				title="Toggle Interactive Help Panel"
 				style="width: auto; padding: 0 0.55rem; font-size: 0.72rem; font-weight: 600; font-family: var(--font-sans);"
 				onmouseenter={() => onHelpKey?.('help_toggle')}
@@ -1362,7 +1428,7 @@
 		></canvas>
 
 		{#if graphData.nodes && graphData.nodes.length > 0}
-			<div 
+			<div
 				class="legend"
 				role="none"
 				onmouseenter={() => onHelpKey?.('legend')}

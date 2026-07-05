@@ -4,12 +4,14 @@
 	import InsightPanel from '$lib/components/InsightPanel.svelte';
 	import CodePreviewer from '$lib/components/CodePreviewer.svelte';
 	import HelpInfoHUD from '$lib/components/HelpInfoHUD.svelte';
+	import RepositoryOverview from '$lib/components/RepositoryOverview.svelte';
+	import SmartExplorer from '$lib/components/SmartExplorer.svelte';
 
 	// Svelte 5 reactive states
 	let graphData = $state({ nodes: [], edges: [] });
 	let selectedNode = $state(null);
 	let showCodePreview = $state(false);
-	
+
 	// Help Info panel states
 	let helpModeActive = $state(false);
 	let activeHelpKey = $state(null);
@@ -19,7 +21,7 @@
 			activeHelpKey = key;
 		}
 	}
-	
+
 	let mode = $state('github'); // 'github' or 'local'
 	let repoUrl = $state('');
 	let githubToken = $state('');
@@ -49,8 +51,8 @@
 	}
 
 	async function handleLoadDemo() {
-		mode = 'github';
-		repoUrl = 'demo';
+		mode = 'local';
+		localPath = '/Users/jasubal/AllMyCoding/CodeGraphViewer';
 		fetchRepoData(true);
 	}
 
@@ -59,7 +61,7 @@
 		error = '';
 		warning = '';
 		selectedNode = null;
-		
+
 		try {
 			const response = await fetch('/api/analyze-github', {
 				method: 'POST',
@@ -80,7 +82,7 @@
 			}
 
 			graphData = data;
-			
+
 			// Compute overall repo summary stats
 			const files = data.nodes.filter(n => n.type === 'file');
 			const dirs = data.nodes.filter(n => n.type === 'directory');
@@ -103,6 +105,11 @@
 	function handleSelectNode(node) {
 		selectedNode = node;
 	}
+
+	function handleSelectPath(path) {
+		const node = graphData.nodes.find(item => item.id === path);
+		if (node) selectedNode = node;
+	}
 </script>
 
 <main class="app-container">
@@ -116,18 +123,18 @@
 		<form class="form-container" onsubmit={handleSubmit} style="flex-direction: column; gap: 0.75rem; max-width: 65%;">
 			<!-- Mode Selector Tabs -->
 			<div class="mode-tabs">
-				<button 
-					class="tab-btn {mode === 'github' ? 'active' : ''}" 
-					type="button" 
+				<button
+					class="tab-btn {mode === 'github' ? 'active' : ''}"
+					type="button"
 					onclick={() => { mode = 'github'; error = ''; }}
 					onmouseenter={() => handleHelpKey('github_tab')}
 					onmouseleave={() => handleHelpKey(null)}
 				>
 					GitHub Repo
 				</button>
-				<button 
-					class="tab-btn {mode === 'local' ? 'active' : ''}" 
-					type="button" 
+				<button
+					class="tab-btn {mode === 'local' ? 'active' : ''}"
+					type="button"
 					onclick={() => { mode = 'local'; error = ''; }}
 					onmouseenter={() => handleHelpKey('local_tab')}
 					onmouseleave={() => handleHelpKey(null)}
@@ -138,7 +145,7 @@
 
 			<div style="display: flex; gap: 0.75rem; width: 100%; align-items: flex-end;">
 				{#if mode === 'github'}
-					<div 
+					<div
 						class="input-group"
 						role="none"
 						onmouseenter={() => handleHelpKey('github_tab')}
@@ -155,8 +162,8 @@
 							disabled={loading}
 						/>
 					</div>
-					
-					<div 
+
+					<div
 						class="input-group"
 						role="none"
 						onmouseenter={() => handleHelpKey('github_tab')}
@@ -173,8 +180,8 @@
 						/>
 					</div>
 				{:else}
-					<div 
-						class="input-group" 
+					<div
+						class="input-group"
 						style="flex: 2;"
 						role="none"
 						onmouseenter={() => handleHelpKey('local_tab')}
@@ -194,10 +201,10 @@
 				{/if}
 
 				<div style="display: flex; gap: 0.5rem; flex: 1;">
-					<button 
-						class="submit-btn" 
-						type="submit" 
-						disabled={loading} 
+					<button
+						class="submit-btn"
+						type="submit"
+						disabled={loading}
 						style="flex: 1; height: 38px;"
 						onmouseenter={() => handleHelpKey('analyze_btn')}
 						onmouseleave={() => handleHelpKey(null)}
@@ -209,11 +216,11 @@
 						{/if}
 					</button>
 					{#if mode === 'github'}
-						<button 
-							class="submit-btn" 
-							type="button" 
-							onclick={handleLoadDemo} 
-							disabled={loading} 
+						<button
+							class="submit-btn"
+							type="button"
+							onclick={handleLoadDemo}
+							disabled={loading}
 							style="background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-blue) 100%); flex: 1; height: 38px;"
 							onmouseenter={() => handleHelpKey('demo_btn')}
 							onmouseleave={() => handleHelpKey(null)}
@@ -245,7 +252,7 @@
 					<div class="loading-text">Fetching & Lexically Analyzing Source Blobs...</div>
 				</div>
 			{/if}
-			
+
 			<GraphCanvas
 				{graphData}
 				{selectedNode}
@@ -256,7 +263,7 @@
 			/>
 
 			<!-- Floating Help Information Card HUD Overlay -->
-			<HelpInfoHUD 
+			<HelpInfoHUD
 				active={helpModeActive}
 				activeKey={activeHelpKey}
 			/>
@@ -273,13 +280,29 @@
 				</div>
 			{/if}
 
-			{#if analyzedDetails}
-				<div 
-					class="card"
-					role="none"
-					onmouseenter={() => handleHelpKey('stats_card')}
-					onmouseleave={() => handleHelpKey(null)}
-				>
+			{#if graphData.summary}
+				<RepositoryOverview
+					repo={graphData.repo}
+					summary={graphData.summary}
+					detectedTech={graphData.detectedTech}
+					languageBreakdown={graphData.languageBreakdown}
+					entryPoints={graphData.entryPoints}
+					mainFolders={graphData.mainFolders}
+					health={graphData.health}
+					highRiskFiles={graphData.highRiskFiles}
+					readingPath={graphData.readingPath}
+					onSelectPath={handleSelectPath}
+					onHoverHelp={handleHelpKey}
+				/>
+
+				<SmartExplorer
+					{graphData}
+					{selectedNode}
+					onSelectNode={handleSelectNode}
+					onHoverHelp={handleHelpKey}
+				/>
+			{:else if analyzedDetails}
+				<div class="card">
 					<div class="card-title">Repository Landscape Statistics</div>
 					<div class="stats-grid">
 						<div class="stat-card">
@@ -298,9 +321,9 @@
 				</div>
 			{/if}
 
-			<InsightPanel 
-				{graphData} 
-				{selectedNode} 
+			<InsightPanel
+				{graphData}
+				{selectedNode}
 				onViewCode={() => showCodePreview = true}
 				onHoverHelp={handleHelpKey}
 			/>

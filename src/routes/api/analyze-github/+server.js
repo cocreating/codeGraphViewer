@@ -120,11 +120,35 @@ export async function POST({ request }) {
 
 		// Handle explicit demo request or empty demo URL
 		if (loadDemo || repoUrl === 'demo') {
-			return json({ nodes: demoNodes, edges: edgesToGraph(demoNodes, demoEdges), demo: true });
+			const nodes = demoNodes.map(node => ({ ...node, analysis: node.analysis ? { ...node.analysis } : undefined }));
+			const edges = demoEdges.map(edge => ({ ...edge }));
+			annotateGraph(nodes, edges);
+			const rawItems = nodes
+				.filter(node => node.type === 'file' || node.type === 'directory')
+				.map(node => ({
+					path: node.id,
+					type: node.type === 'directory' ? 'tree' : 'blob',
+					size: node.size || 0
+				}));
+			const intelligence = buildRepoIntelligence({
+				mode: 'local',
+				rootName: 'CodeGraphViewer',
+				repoData: null,
+				rawItems,
+				prunedTree: rawItems,
+				nodes,
+				edges,
+				manifestContents: new Map()
+			});
+			return json({ nodes, edges, ...intelligence, demo: true });
 		}
 
 		let rawItems = [];
 		let rootName = '';
+		let owner = '';
+		let repo = '';
+		let repoData = null;
+		const manifestContents = new Map();
 
 		if (mode === 'local') {
 			// Resolve absolute path for local analysis
@@ -140,6 +164,17 @@ export async function POST({ request }) {
 
 			rootName = path.basename(targetDir) || 'local-repo';
 			rawItems = walkLocalDir(targetDir, targetDir);
+
+			for (const manifestPath of ['package.json', 'composer.json', 'pyproject.toml', 'requirements.txt', 'Gemfile']) {
+				const fullPath = path.join(targetDir, manifestPath);
+				if (fs.existsSync(fullPath)) {
+					try {
+						manifestContents.set(manifestPath, fs.readFileSync(fullPath, 'utf8'));
+					} catch (err) {
+						console.warn(`Could not read manifest ${manifestPath}:`, err.message);
+					}
+				}
+			}
 		} else {
 			// GitHub mode
 			if (!repoUrl) {
@@ -153,8 +188,8 @@ export async function POST({ request }) {
 				return json({ error: 'Invalid GitHub repository URL' }, { status: 400 });
 			}
 
-			const owner = match[1];
-			const repo = match[2];
+			owner = match[1];
+			repo = match[2];
 			rootName = repo;
 
 			// Set up request headers
@@ -192,7 +227,7 @@ export async function POST({ request }) {
 				return json({ error: `Failed to fetch repo: ${repoRes.statusText || errorText}` }, { status: repoRes.status });
 			}
 			
-			const repoData = await repoRes.json();
+			repoData = await repoRes.json();
 			const defaultBranch = repoData.default_branch || 'main';
 
 			// Fetch Git tree recursively
@@ -244,6 +279,17 @@ export async function POST({ request }) {
 			};
 
 			rawItems = treeData.tree.filter(item => !isIgnored(item.path) && !isBinary(item.path));
+
+			for (const manifestPath of ['package.json', 'composer.json', 'pyproject.toml', 'requirements.txt', 'Gemfile']) {
+				const manifestItem = treeData.tree.find(item => item.type === 'blob' && item.path === manifestPath);
+				if (manifestItem?.sha) {
+					try {
+						manifestContents.set(manifestPath, await fetchFileContent(owner, repo, manifestItem.sha, headers));
+					} catch (err) {
+						console.warn(`Could not fetch manifest ${manifestPath}:`, err.message);
+					}
+				}
+			}
 		}
 
 		// Limit the graph size if the codebase is extremely large
@@ -358,7 +404,19 @@ export async function POST({ request }) {
 			}
 		}
 
-		return json({ nodes, edges });
+		annotateGraph(nodes, edges);
+		const intelligence = buildRepoIntelligence({
+			mode,
+			rootName,
+			repoData,
+			rawItems,
+			prunedTree,
+			nodes,
+			edges,
+			manifestContents
+		});
+
+		return json({ nodes, edges, ...intelligence });
 	} catch (error) {
 		console.error('Server error analyzing repo:', error);
 		return json({ error: error.message || 'Internal Server Error' }, { status: 500 });
@@ -427,6 +485,368 @@ function processAnalysisResults(filePath, analysis, nodes, edges, allFilePaths, 
 // Simple helper to shape edges
 function edgesToGraph(nodes, edges) {
 	return edges;
+}
+
+function getSourceId(edge) {
+	return typeof edge.source === 'object' ? edge.source.id : edge.source;
+}
+
+function getTargetId(edge) {
+	return typeof edge.target === 'object' ? edge.target.id : edge.target;
+}
+
+function getExt(filePath) {
+	const dotIndex = filePath.lastIndexOf('.');
+	return dotIndex >= 0 ? filePath.slice(dotIndex).toLowerCase() : '';
+}
+
+function getLanguage(filePath) {
+	const ext = getExt(filePath);
+	const languageMap = {
+		'.js': 'JavaScript',
+		'.mjs': 'JavaScript',
+		'.cjs': 'JavaScript',
+		'.ts': 'TypeScript',
+		'.tsx': 'TypeScript',
+		'.jsx': 'JavaScript',
+		'.svelte': 'Svelte',
+		'.vue': 'Vue',
+		'.astro': 'Astro',
+		'.py': 'Python',
+		'.php': 'PHP',
+		'.rb': 'Ruby',
+		'.css': 'CSS',
+		'.scss': 'SCSS',
+		'.sass': 'Sass',
+		'.json': 'JSON',
+		'.md': 'Markdown',
+		'.html': 'HTML',
+		'.yml': 'YAML',
+		'.yaml': 'YAML'
+	};
+	return languageMap[ext] || (ext ? ext.slice(1).toUpperCase() : 'Plain text');
+}
+
+function classifyRole(filePath, nodeType) {
+	if (nodeType === 'root') return 'root';
+	if (nodeType === 'directory') {
+		const name = filePath.split('/').pop();
+		if (/^(test|tests|__tests__|spec|e2e)$/i.test(name)) return 'tests';
+		if (/^(components|ui|widgets)$/i.test(name)) return 'components';
+		if (/^(routes|pages|app)$/i.test(name)) return 'routing';
+		if (/^(api|server|controllers)$/i.test(name)) return 'api';
+		if (/^(styles|css|scss)$/i.test(name)) return 'styles';
+		if (/^(docs|documentation)$/i.test(name)) return 'docs';
+		if (/^(assets|static|public|images)$/i.test(name)) return 'assets';
+		return 'folder';
+	}
+
+	const lower = filePath.toLowerCase();
+	const name = lower.split('/').pop();
+
+	if (/readme|changelog|contributing|license|\.md$/.test(name) || lower.startsWith('docs/')) return 'docs';
+	if (/(\.test\.|\.spec\.|__tests__|\/tests?\/|\/e2e\/)/.test(lower)) return 'tests';
+	if (/src\/routes|\/routes\/|\/pages\/|\/app\/.*page\./.test(lower)) return 'routing';
+	if (/\/api\/|\+server\.|controller|route\.(js|ts|php|py|rb)$/.test(lower)) return 'api';
+	if (/\/components\/|\/ui\/|\.svelte$|\.vue$|\.tsx$/.test(lower)) return 'components';
+	if (/\.css$|\.scss$|\.sass$|tailwind\.config|postcss\.config/.test(lower)) return 'styles';
+	if (/package\.json|vite\.config|svelte\.config|next\.config|astro\.config|tsconfig|jsconfig|composer\.json|pyproject\.toml|gemfile|dockerfile|vercel\.json|netlify\.toml/.test(lower)) return 'config';
+	if (/\/assets\/|\/static\/|\/public\/|\.(png|jpg|jpeg|gif|webp|svg|ico)$/.test(lower)) return 'assets';
+	return 'source';
+}
+
+function annotateGraph(nodes, edges) {
+	const importsOut = new Map();
+	const importsIn = new Map();
+
+	edges.forEach(edge => {
+		if (edge.type !== 'import') return;
+		const source = getSourceId(edge);
+		const target = getTargetId(edge);
+		importsOut.set(source, (importsOut.get(source) || 0) + 1);
+		importsIn.set(target, (importsIn.get(target) || 0) + 1);
+	});
+
+	nodes.forEach(node => {
+		node.role = classifyRole(node.id, node.type);
+		node.language = node.type === 'file' ? getLanguage(node.id) : null;
+		node.importsCount = node.analysis?.importsCount || importsOut.get(node.id) || 0;
+		node.dependentsCount = importsIn.get(node.id) || 0;
+		node.depth = node.id && node.id !== 'root' ? node.id.split('/').length - 1 : 0;
+
+		const riskReasons = [];
+		let riskScore = 0;
+
+		if (node.type === 'file') {
+			if ((node.size || 0) > 20000) {
+				riskScore += 30;
+				riskReasons.push('large file');
+			} else if ((node.size || 0) > 10000) {
+				riskScore += 15;
+				riskReasons.push('medium-large file');
+			}
+
+			if (node.importsCount > 8) {
+				riskScore += 25;
+				riskReasons.push('many dependencies');
+			} else if (node.importsCount > 4) {
+				riskScore += 12;
+				riskReasons.push('several dependencies');
+			}
+
+			if (node.dependentsCount > 8) {
+				riskScore += 30;
+				riskReasons.push('many dependents');
+			} else if (node.dependentsCount > 3) {
+				riskScore += 15;
+				riskReasons.push('shared dependency');
+			}
+
+			if (node.depth > 5) {
+				riskScore += 8;
+				riskReasons.push('deeply nested');
+			}
+
+			if (node.role === 'api' || node.role === 'config') {
+				riskScore += 10;
+				riskReasons.push(`${node.role} surface`);
+			}
+
+			if (['.js', '.ts', '.svelte', '.py', '.php', '.jsx', '.tsx', '.mjs', '.cjs'].includes(getExt(node.id)) && !node.analysis) {
+				riskScore += 8;
+				riskReasons.push('not parsed in current cap');
+			}
+		}
+
+		node.riskScore = Math.min(100, Math.round(riskScore));
+		node.riskLevel = node.riskScore >= 50 ? 'high' : node.riskScore >= 25 ? 'medium' : 'low';
+		node.riskReasons = riskReasons;
+		node.importanceScore = Math.round(
+			(node.dependentsCount * 4) +
+			(node.importsCount * 2) +
+			((node.size || 0) / 2500) +
+			(node.role === 'routing' || node.role === 'api' ? 6 : 0) +
+			(node.role === 'config' ? 5 : 0)
+		);
+	});
+}
+
+function safeParsePackageJson(manifestContents) {
+	const raw = manifestContents.get('package.json');
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw);
+	} catch {
+		return null;
+	}
+}
+
+function hasPath(paths, matcher) {
+	return paths.some(path => typeof matcher === 'string' ? path === matcher : matcher.test(path));
+}
+
+function detectTechnology(paths, manifestContents) {
+	const packageJson = safeParsePackageJson(manifestContents);
+	const deps = {
+		...(packageJson?.dependencies || {}),
+		...(packageJson?.devDependencies || {})
+	};
+	const hasDep = (name) => Boolean(deps[name]);
+	const tech = [];
+
+	if (hasDep('@sveltejs/kit') || hasPath(paths, /svelte\.config\./)) tech.push('SvelteKit');
+	else if (hasDep('svelte') || hasPath(paths, /\.svelte$/)) tech.push('Svelte');
+	if (hasDep('next') || hasPath(paths, /next\.config\./)) tech.push('Next.js');
+	if (hasDep('vue') || hasPath(paths, /\.vue$/)) tech.push('Vue');
+	if (hasDep('astro') || hasPath(paths, /astro\.config\./)) tech.push('Astro');
+	if (hasDep('express')) tech.push('Express');
+	if (hasPath(paths, 'composer.json') && /laravel\/framework/.test(manifestContents.get('composer.json') || '')) tech.push('Laravel');
+	if (hasPath(paths, /wp-content|functions\.php|style\.css/)) tech.push('WordPress');
+	if (hasPath(paths, 'manage.py') || hasDep('django') || /django/i.test(manifestContents.get('requirements.txt') || '')) tech.push('Django');
+	if (hasPath(paths, 'Gemfile') && /rails/i.test(manifestContents.get('Gemfile') || '')) tech.push('Rails');
+	if (hasDep('vite') || hasPath(paths, /vite\.config\./)) tech.push('Vite');
+	if (hasDep('d3')) tech.push('D3');
+	if (hasDep('gsap')) tech.push('GSAP');
+
+	return [...new Set(tech)];
+}
+
+function detectProjectType(paths, manifestContents, detectedTech) {
+	const packageJson = safeParsePackageJson(manifestContents);
+	const hasApi = paths.some(path => /\/api\/|\+server\.|controllers?|routes?\/api/i.test(path));
+	const hasFrontend = detectedTech.some(tech => ['SvelteKit', 'Svelte', 'Next.js', 'Vue', 'Astro'].includes(tech));
+	const hasDocs = paths.some(path => path.startsWith('docs/') || path.toLowerCase().endsWith('.md'));
+	const hasPackages = paths.some(path => /^packages\/[^/]+\/package\.json$/.test(path)) || Boolean(packageJson?.workspaces);
+
+	if (hasPackages) return 'monorepo';
+	if (hasFrontend && hasApi) return 'full-stack app';
+	if (hasFrontend) return 'frontend app';
+	if (hasApi) return 'backend API';
+	if (packageJson?.bin) return 'CLI tool';
+	if (packageJson?.main || packageJson?.exports) return 'package/library';
+	if (hasDocs) return 'documentation site';
+	return 'code repository';
+}
+
+function getLanguageBreakdown(rawItems) {
+	const totals = new Map();
+	let totalBytes = 0;
+
+	rawItems.forEach(item => {
+		if (item.type !== 'blob') return;
+		const size = item.size || 0;
+		const language = getLanguage(item.path);
+		totals.set(language, (totals.get(language) || 0) + size);
+		totalBytes += size;
+	});
+
+	return Array.from(totals.entries())
+		.map(([language, bytes]) => ({
+			language,
+			bytes,
+			percent: totalBytes ? Math.round((bytes / totalBytes) * 1000) / 10 : 0
+		}))
+		.sort((a, b) => b.bytes - a.bytes)
+		.slice(0, 8);
+}
+
+function getEntryPoints(paths, packageJson) {
+	const candidates = [
+		'README.md',
+		'package.json',
+		'src/routes/+page.svelte',
+		'src/routes/+layout.svelte',
+		'src/main.js',
+		'src/main.ts',
+		'src/App.svelte',
+		'src/App.vue',
+		'app/page.tsx',
+		'pages/index.tsx',
+		'pages/index.js',
+		'manage.py',
+		'index.php'
+	];
+	const entries = candidates.filter(path => paths.includes(path));
+	if (packageJson?.main && paths.includes(packageJson.main)) entries.push(packageJson.main);
+	if (packageJson?.module && paths.includes(packageJson.module)) entries.push(packageJson.module);
+	return [...new Set(entries)].slice(0, 8);
+}
+
+function buildReadingPath(paths, nodes, entryPoints) {
+	const steps = [];
+	const push = (path, reason) => {
+		if (!path || !paths.includes(path) || steps.some(step => step.path === path)) return;
+		steps.push({ path, reason });
+	};
+
+	push('README.md', 'Start with project intent, setup notes, and usage context.');
+	push('package.json', 'Understand scripts, runtime dependencies, and package shape.');
+	['vite.config.js', 'svelte.config.js', 'next.config.js', 'astro.config.mjs', 'composer.json', 'pyproject.toml'].forEach(path => {
+		push(path, 'Review build and framework configuration.');
+	});
+	entryPoints.forEach(path => push(path, 'Inspect an application or package entry point.'));
+
+	nodes
+		.filter(node => node.type === 'file' && ['routing', 'api', 'components'].includes(node.role))
+		.sort((a, b) => b.importanceScore - a.importanceScore)
+		.slice(0, 4)
+		.forEach(node => push(node.id, `Review a core ${node.role} file with high graph importance.`));
+
+	nodes
+		.filter(node => node.type === 'file' && node.role === 'tests')
+		.sort((a, b) => b.importanceScore - a.importanceScore)
+		.slice(0, 2)
+		.forEach(node => push(node.id, 'Check how behavior is tested.'));
+
+	return steps.slice(0, 10);
+}
+
+function getMainFolders(nodes) {
+	const folderMap = new Map();
+	nodes.forEach(node => {
+		if (node.type !== 'file') return;
+		const folder = node.id.includes('/') ? node.id.split('/')[0] : '(root)';
+		const current = folderMap.get(folder) || { folder, files: 0, bytes: 0, riskScore: 0 };
+		current.files += 1;
+		current.bytes += node.size || 0;
+		current.riskScore += node.riskScore || 0;
+		folderMap.set(folder, current);
+	});
+
+	return Array.from(folderMap.values())
+		.map(folder => ({
+			...folder,
+			avgRisk: folder.files ? Math.round(folder.riskScore / folder.files) : 0
+		}))
+		.sort((a, b) => b.files - a.files)
+		.slice(0, 8);
+}
+
+function buildRepoIntelligence({ mode, rootName, repoData, rawItems, prunedTree, nodes, edges, manifestContents }) {
+	const paths = rawItems.map(item => item.path);
+	const packageJson = safeParsePackageJson(manifestContents);
+	const detectedTech = detectTechnology(paths, manifestContents);
+	const projectType = detectProjectType(paths, manifestContents, detectedTech);
+	const entryPoints = getEntryPoints(paths, packageJson);
+	const fileNodes = nodes.filter(node => node.type === 'file');
+	const directoryNodes = nodes.filter(node => node.type === 'directory');
+	const highRiskFiles = fileNodes
+		.filter(node => node.riskLevel === 'high' || node.riskLevel === 'medium')
+		.sort((a, b) => b.riskScore - a.riskScore || b.importanceScore - a.importanceScore)
+		.slice(0, 10);
+	const importantFiles = fileNodes
+		.sort((a, b) => b.importanceScore - a.importanceScore)
+		.slice(0, 10);
+	const roleCounts = nodes.reduce((acc, node) => {
+		acc[node.role] = (acc[node.role] || 0) + 1;
+		return acc;
+	}, {});
+
+	const analyzedFiles = fileNodes.filter(node => node.analysis).length;
+	const totalFiles = rawItems.filter(item => item.type === 'blob').length;
+
+	return {
+		repo: {
+			name: repoData?.name || rootName,
+			fullName: repoData?.full_name || rootName,
+			description: repoData?.description || '',
+			url: repoData?.html_url || null,
+			defaultBranch: repoData?.default_branch || null,
+			stars: repoData?.stargazers_count ?? null,
+			forks: repoData?.forks_count ?? null,
+			openIssues: repoData?.open_issues_count ?? null,
+			license: repoData?.license?.spdx_id || repoData?.license?.name || null,
+			lastActivity: repoData?.pushed_at || null,
+			mode
+		},
+		summary: {
+			projectType,
+			architecture: `${projectType} with ${detectedTech.length ? detectedTech.join(', ') : 'no dominant framework detected'}. The analyzed graph currently includes ${fileNodes.length} files, ${directoryNodes.length} folders, and ${edges.length} relationships.`,
+			totalFiles,
+			displayedFiles: fileNodes.length,
+			analyzedFiles,
+			totalFolders: rawItems.filter(item => item.type === 'tree').length,
+			displayedFolders: directoryNodes.length,
+			graphNodeCapApplied: rawItems.length > prunedTree.length,
+			graphNodeCap: prunedTree.length,
+			roleCounts
+		},
+		detectedTech,
+		languageBreakdown: getLanguageBreakdown(rawItems),
+		entryPoints,
+		mainFolders: getMainFolders(nodes),
+		importantFiles,
+		highRiskFiles,
+		readingPath: buildReadingPath(paths, nodes, entryPoints),
+		health: {
+			complexityScore: Math.min(100, Math.round(fileNodes.reduce((sum, node) => sum + (node.riskScore || 0), 0) / Math.max(1, fileNodes.length))),
+			highRiskCount: highRiskFiles.filter(node => node.riskLevel === 'high').length,
+			mediumRiskCount: highRiskFiles.filter(node => node.riskLevel === 'medium').length,
+			importEdges: edges.filter(edge => edge.type === 'import').length,
+			packageCount: nodes.filter(node => node.type === 'package').length,
+			analysisCoverage: totalFiles ? Math.round((analyzedFiles / totalFiles) * 100) : 0
+		}
+	};
 }
 
 async function fetchFileContent(owner, repo, sha, headers) {

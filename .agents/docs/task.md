@@ -14,3 +14,12 @@
   - [x] Wire up mouseenter and mouseleave handlers across GraphCanvas, InsightPanel, and +page.svelte
   - [x] Resolve all Svelte AST compilation a11y warnings by adding appropriate ARIA roles
   - [x] Verify production build and confirm smooth transitions in the browser
+- [x] Add repository intelligence core:
+  - [x] Extend analyzer response with repository metadata, detected stack, project type, language breakdown, entry points, main folders, important files, health metrics, and reading path
+  - [x] Annotate graph nodes with architecture role, language, import/dependent counts, importance score, risk score, risk level, and risk reasons
+  - [x] Add RepositoryOverview.svelte dashboard for executive repository understanding
+  - [x] Add SmartExplorer.svelte with search, role filter, risk filter, file metrics, and graph selection
+  - [x] Expand graph search to match paths, roles, languages, risk levels, imports, exports, and endpoints
+  - [x] Add Risk Score heatmap mode and risk outlines on graph nodes
+  - [x] Expand Interactive Help HUD coverage for overview, explorer, role/risk filters, reading path, stack, language breakdown, and risk hotspots
+  - [x] Verify build compiles successfully (`npm run build`)
