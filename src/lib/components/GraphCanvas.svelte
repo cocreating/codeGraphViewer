@@ -995,7 +995,9 @@
 			}
 
 			if (showLabel) {
-				const fontSize = isSelected ? 11 : isHovered ? 10 : 10;
+				const baseFontSize = isSelected ? 11 : isHovered ? 10 : 9.5;
+				// Scale font size inversely by zoom level to keep on-screen size constant
+				const fontSize = baseFontSize / activeTransform.k;
 				ctx.font = isSelected
 					? `bold ${fontSize}px "Outfit", sans-serif`
 					: isHovered ? `500 ${fontSize}px "Outfit", sans-serif` : `${fontSize}px "Outfit", sans-serif`;
@@ -1004,29 +1006,32 @@
 					? '#ffffff'
 					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#b2f5ea' : '#c4bdd4');
 
-				const labelX = node.px + radius + 7;
-				const labelY = node.py + 3;
+				// Scale offsets and pill padding inversely by zoom level
+				const offset = 6 / activeTransform.k;
+				const labelX = node.px + radius + offset;
+				const labelY = node.py + (fontSize * 0.32);
 
 				// Draw dark pill background for ambient labels (not selected)
 				if (!isSelected) {
 					const metrics = ctx.measureText(node.name);
-					const padH = 3;
-					const padV = 2.5;
+					const padH = 3.5 / activeTransform.k;
+					const padV = 2.0 / activeTransform.k;
+					const cornerRadius = 3 / activeTransform.k;
 					ctx.fillStyle = `rgba(8, 6, 18, ${0.58 * finalOpacity})`;
 					ctx.beginPath();
 					ctx.roundRect(
 						labelX - padH,
-						labelY - fontSize + 1 - padV,
+						labelY - fontSize + (1 / activeTransform.k) - padV,
 						metrics.width + padH * 2,
 						fontSize + padV * 2,
-						3
+						cornerRadius
 					);
 					ctx.fill();
 				}
 
 				ctx.fillStyle = hexToRgba(textColor, finalOpacity);
 				ctx.shadowColor = 'rgba(0,0,0,0.8)';
-				ctx.shadowBlur = isSelected ? 6 : 0;
+				ctx.shadowBlur = isSelected ? (6 / activeTransform.k) : 0;
 				ctx.fillText(node.name, labelX, labelY);
 				ctx.shadowBlur = 0;
 			}
