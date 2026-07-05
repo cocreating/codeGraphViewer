@@ -1,8 +1,9 @@
-- [x] Implement File Complexity Heatmap Overlay:
-  - [x] Add `.heatmap-select` dropdown styles in app.css
-  - [x] Add heatmap state, derived statistics, and HSL gradient in GraphCanvas.svelte
-  - [x] Update node rendering loop to override colors and sizes based on complexity metrics
-  - [x] Implement canvas HUD screen legend overlay
-  - [x] Add dropdown markup inside visualizer-header
+- [x] Implement Slide-Out Glassmorphic Code Previewer:
+  - [x] Install prismjs syntax highlighter library
+  - [x] Create secure `/api/get-file-content` backend endpoint in SvelteKit
+  - [x] Create CodePreviewer.svelte side-drawer component using GSAP transitions
+  - [x] Add code drawer CSS styles (glassmorphic layout, loading animation) in app.css
+  - [x] Integrate View Source Code button in InsightPanel.svelte
+  - [x] Wire up state and render CodePreviewer in +page.svelte
 - [x] Verify build compiles successfully (`npm run build`)
 - [x] Validate changes in browser

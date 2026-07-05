@@ -972,7 +972,9 @@
 				}
 			});
 
-			if (hoveredNode !== closest) {
+			const currentHoveredId = hoveredNode ? hoveredNode.id : null;
+			const closestId = closest ? closest.id : null;
+			if (currentHoveredId !== closestId) {
 				hoveredNode = closest;
 			}
 		}

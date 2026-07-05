@@ -8,6 +8,7 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 5. **Dependency Path Highlighting** which isolates selected node relationships by dimming unrelated files.
 6. **Semantic Search & Camera Focus** to easily find and focus on modules within large codebases.
 7. **Complexity Heatmap Overlay** which visually encodes file complexity and coupling using size and color-temperature scales.
+8. **Slide-Out Glassmorphic Code Previewer** to view syntax-highlighted code contents directly inside the visualization.
 
 ---
 
@@ -64,3 +65,13 @@ Selecting a complexity overlay from the dropdown menu temporarily overrides the 
 - **Size Scaling**: File node radii scale dynamically from `6px` to `20px` based on their normalized metric ratio.
 - **Background Dimming**: Directories, packages, and code symbols shrink and dim to a neutral slate gray, letting complex files float like glowing fireflies.
 - **HUD Screen Legend**: A floating glass card draws at the bottom-right of the screen to display the active metric title and gradient scale. It remains fixed during zoom/pan operations.
+
+---
+
+## 6. Step 4: Slide-Out Glassmorphic Code Previewer
+
+When a file node is selected, a prominent **View Source Code** button is rendered inside the Code Insights Panel. Clicking it slides open a full-height glass drawer:
+- **Slide-in Animation**: A smooth GSAP transition slides the drawer from the right edge (`translateX(100%) -> 0%`) and fades in a dark blurred glass backdrop overlay.
+- **Dynamic Secure Fetching**: Svelte requests file contents from `/api/get-file-content` which reads files locally or pulls raw blobs via the GitHub API, utilizing target directory path traversal protection.
+- **Syntax Highlighting**: Uses PrismJS core library to compile code contents into formatted CSS tokens (supporting Svelte, JS, TS, HTML, CSS, JSON, and C-like languages).
+- **Scrollable Code View**: A dedicated code wrapper maintains correct line heights, a translucent custom scrollbar track, and responsive text sizing.

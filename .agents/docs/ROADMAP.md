@@ -42,17 +42,18 @@ This document outlines the architecture, accomplishments, and future milestones 
   - Overrides node size and color dynamically, highlighting complex source files on a glowing Cyan-to-Red gradient, while shrinking directories and packages to a dark neutral slate background.
   - Adds a floating canvas HUD legend panel at the bottom-right corner to show active metric labels and scale.
 
+### 6. Step 4: Slide-Out Glassmorphic Code Previewer
+- **Implementation**: Enabled side-drawer code loading and PrismJS syntax highlighting.
+- **Effects**:
+  - Adds a "View Source Code" button in the Code Insights Panel when a file node is selected.
+  - Clicking it slides open a full-height glass drawer from the right edge of the viewport.
+  - Fetches local or remote files securely, preventing path traversal vulnerabilities.
+  - Syntax highlights code dynamically using PrismJS tomorrow theme across Svelte, JavaScript, TypeScript, CSS, HTML, and JSON.
+  - Supports smooth GSAP closing and backdrop click dismissal.
+
 ---
 
 ## 📅 Future Milestones
-
-### Step 4: Slide-Out Glassmorphic Code Previewer [PLANNED]
-- **Objective**: Allow users to inspect file code directly inside the visualizer without leaving the page.
-- **Implementation Plan**:
-  1. Design a glassmorphic side-drawer component that slides in from the right edge.
-  2. Use GSAP for smooth slide-in transitions.
-  3. Load selected file code from the local workspace/GitHub repository.
-  4. Add syntax highlighting (e.g., using PrismJS or lightweight Monaco Editor).
 
 ### Step 5: Spherical Constellation & Cylindrical Morphing View Modes [PLANNED]
 - **Objective**: Morph nodes smoothly between the default hierarchy tree (Tower) and alternative 3D shapes (Sphere, Cylinder).

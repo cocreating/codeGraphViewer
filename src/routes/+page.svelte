@@ -1,10 +1,14 @@
 <script>
+	import { untrack } from 'svelte';
 	import GraphCanvas from '$lib/components/GraphCanvas.svelte';
 	import InsightPanel from '$lib/components/InsightPanel.svelte';
+	import CodePreviewer from '$lib/components/CodePreviewer.svelte';
 
 	// Svelte 5 reactive states
 	let graphData = $state({ nodes: [], edges: [] });
 	let selectedNode = $state(null);
+	let showCodePreview = $state(false);
+	
 	let mode = $state('github'); // 'github' or 'local'
 	let repoUrl = $state('');
 	let githubToken = $state('');
@@ -13,6 +17,16 @@
 	let error = $state('');
 	let warning = $state('');
 	let analyzedDetails = $state(null);
+
+	// Reset code preview drawer when node selection changes
+	$effect(() => {
+		const node = selectedNode;
+		untrack(() => {
+			if (!node) {
+				showCodePreview = false;
+			}
+		});
+	});
 
 	// Fetch repository data from backend API
 	async function handleSubmit(event) {
@@ -230,7 +244,21 @@
 				</div>
 			{/if}
 
-			<InsightPanel {graphData} {selectedNode} />
+			<InsightPanel 
+				{graphData} 
+				{selectedNode} 
+				onViewCode={() => showCodePreview = true} 
+			/>
 		</aside>
 	</div>
+
+	<CodePreviewer
+		{selectedNode}
+		show={showCodePreview}
+		onClose={() => showCodePreview = false}
+		{mode}
+		{localPath}
+		{repoUrl}
+		{githubToken}
+	/>
 </main>

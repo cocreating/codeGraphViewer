@@ -1,5 +1,5 @@
 <script>
-	let { graphData = { nodes: [], edges: [] }, selectedNode = null } = $props();
+	let { graphData = { nodes: [], edges: [] }, selectedNode = null, onViewCode } = $props();
 
 	// Helper to resolve string source/target IDs from D3 edge objects
 	const getSourceId = (edge) => typeof edge.source === 'object' ? edge.source.id : edge.source;
@@ -89,6 +89,18 @@
 				<div class="node-name">{selectedNode.name}</div>
 				{#if selectedNode.id !== 'root'}
 					<div class="node-path">{selectedNode.id}</div>
+				{/if}
+				{#if selectedNode.type === 'file'}
+					<button 
+						class="preview-code-btn"
+						onclick={onViewCode}
+						style="width: 100%; margin-top: 0.65rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.45rem; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; color: #d8b4fe; font-family: var(--font-sans); font-size: 0.75rem; font-weight: 600; cursor: pointer;"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" style="width: 0.85rem; height: 0.85rem;">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
+						</svg>
+						View Source Code
+					</button>
 				{/if}
 			</div>
 
