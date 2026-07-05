@@ -7,7 +7,7 @@ This document details the libraries, runtime tools, and custom algorithms that p
 ## 1. Core Framework & Routing
 - **Svelte 5**: Leverages the new runes system (`$state`, `$derived`, `$effect`, `$bindable`, and `$state.snapshot`) for reactive bindings and state management.
 - **SvelteKit**: Handles server-side rendering (SSR), layout routing, and backend endpoints.
-- **Default App Config**: `src/lib/config/defaults.js` defines the default mode, default focus mode, and local repository presets used by the first-run experience.
+- **Default App Config**: `src/lib/config/defaults.js` defines the default mode, default focus mode, local repository presets, and the `flowParticles` block that controls the size, colour, glow, opacity, and speed of animated edge particles — all tuneable without touching renderer code.
 
 ---
 
@@ -44,3 +44,45 @@ This document details the libraries, runtime tools, and custom algorithms that p
 - **Floating Collapsible Inspector**: The repository details panel is absolutely positioned inside a `canvas-stage` container so it overlays the live graph. State is driven by two Svelte 5 runes (`inspectorCollapsed`, `activeInspectorTab`). Selecting a canvas node auto-expands the panel and activates the *Selected* tab via `$effect`.
 - **Tabbed Inspector Layout**: Four named tabs (Overview, Explorer, Selected, Nav) conditionally render their child component only when active, keeping DOM complexity low during tab switches.
 - **In-App Folder Browser Modal**: A glassmorphic `folder-browser` dialog floats over a `folder-browser-backdrop`. State (`localBrowserOpen`, `localBrowserPath`, `localBrowserEntries`, `localBrowserRoots`, `localBrowserParentPath`, `localBrowserLoading`, `localBrowserError`) is managed entirely with Svelte 5 `$state` runes in `+page.svelte`. The backdrop element captures click events and closes the modal when the user clicks outside the dialog box.
+
+---
+
+## 5. Canvas Rendering Design
+
+### Node Sizing
+Node radii (`getNodeRadius`) are kept intentionally subtle to avoid visual clutter. Current baseline sizes: root 13 px, directory 7.5 px, file 5.5 px, class 4 px, export 3.5 px, endpoint/package 5 px. The heatmap overlay scales file nodes dynamically from 4 px (min) to 16 px (max) based on the selected metric ratio.
+
+### D3 Force Tuning
+The simulation is tuned for maximum readability:
+- **Link distances**: hierarchy 55 px, contains 28 px, import 90 px — wide gaps let nodes breathe.
+- **Charge repulsion**: root −280, directory −110, file −55, other −18 (scaled to 40% for graphs > 80 nodes).
+- **Collision radius**: `getNodeRadius(type) + 10 px` padding prevents any overlap.
+- **Center gravity**: 0.02 (small graphs) / 0.05 (large) — light enough that repulsion dominates and nodes spread naturally.
+- **Initial scatter**: new nodes are placed at 120–300 px from centre so the simulation starts from an already-spread state.
+
+### Edge Rendering
+Three edge types are styled distinctly but kept visually quiet at rest:
+- *Hierarchy*: solid, 0.6 px, 2.5% white opacity.
+- *Contains*: dashed [2, 4], 0.7 px, 4.5% white opacity.
+- *Import*: dashed [4, 5], 0.9 px, 13% purple opacity at rest; 1.4 px, 45% opacity when the edge is highlighted.
+Small directional arrowheads (4 px) indicate flow direction on import and contains edges.
+
+### Label Rendering
+- **Visibility threshold**: root and directory labels are always shown; file labels appear at zoom `k > 0.9`; all other types at `k > 1.6`.
+- **Pill background**: a rounded dark rectangle (`rgba(8,6,18, 0.58)`) is drawn behind every ambient label to ensure legibility on busy canvas backgrounds.
+- **Colour scheme**: selected labels are bright white; directory labels use a soft teal tint (`#b2f5ea`); ambient file labels use `#c4bdd4`.
+
+### Flow Particles (Configurable)
+Animated dots travel along edges to indicate data/import direction. All visual properties are read from `DEFAULT_APP_CONFIG.flowParticles` (aliased as `PC` in `GraphCanvas.svelte`) and can be changed in `defaults.js` without touching the renderer:
+
+| Config key | Default | Effect |
+|---|---|---|
+| `importRadius` | 1.4 px | Size of import-edge particles |
+| `otherRadius` | 0.9 px | Size of hierarchy/contains particles |
+| `importColor` | `[253, 224, 71]` | Amber-yellow fill (`#fde047`) |
+| `importGlowColor` | `#fbbf24` | Shadow/glow colour |
+| `importGlowBlur` | 6 | Ambient glow spread |
+| `importGlowBlurActive` | 12 | Glow spread when edge is highlighted |
+| `importOpacity` | 0.85 | Fill opacity |
+| `importSpeed` | 0.38 | Travel speed (cycles/second) |
+| `activeSpeedMultiplier` | 1.6 | Speed boost on selected edges |

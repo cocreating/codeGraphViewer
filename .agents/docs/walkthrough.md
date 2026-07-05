@@ -18,6 +18,8 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 15. **Graph Visualization Orientation Upgrades** with semantic color modes, a minimap, selected-node focus strip, and dynamic legends.
 16. **Floating Collapsible Inspector Panel** replacing the fixed sidebar with a glassmorphic overlay that hovers over the canvas and offers tabbed access to Overview, Explorer, Selected, and Nav sections.
 17. **In-App Local Folder Browser** — a modal directory navigator that lets users browse their local filesystem to select a repository path without typing it manually.
+18. **Graph Visual Refinement** — smaller nodes, wider D3 force spacing, softer edge lines, earlier and pill-backed text labels, and proportional aura glows for a less cluttered canvas.
+19. **Configurable Flow Particles** — the amber-yellow glowing electrons (data-flow dots) that travel along edges are fully configurable via the `flowParticles` block in `defaults.js`.
 
 ---
 
@@ -177,6 +179,8 @@ The static fixed sidebar has been replaced by a **floating glassmorphic inspecto
 
 ---
 
+---
+
 ## 15. In-App Local Folder Browser
 
 A new modal dialog enables navigating the local filesystem without leaving the app:
@@ -186,3 +190,53 @@ A new modal dialog enables navigating the local filesystem without leaving the a
 - **Use This Folder**: The footer action copies the currently browsed path into the local path input and closes the modal.
 - **Backdrop Dismiss**: Clicking outside the modal dialog closes it without changing the path.
 - **`/api/browse-local` Endpoint**: A new SvelteKit GET handler at `src/routes/api/browse-local/+server.js` reads `fs.readdirSync` results, filters out build artifacts (`node_modules`, `.git`, `dist`, etc.), checks read permissions via `fs.accessSync`, and returns `{ currentPath, parentPath, roots, entries }` as JSON.
+
+---
+
+## 16. Graph Visual Refinement
+
+The node-and-edge canvas was refined for clarity, airiness, and legibility:
+
+**Node sizes** reduced ~25% across all types:
+| Type | Before | After |
+|---|---|---|
+| root | 16 px | 13 px |
+| directory | 10 px | 7.5 px |
+| file | 7.5 px | 5.5 px |
+| class / export | 5.5 / 4.5 px | 4 / 3.5 px |
+
+**Spacing & forces** expanded significantly:
+- Initial scatter radius: 50–110 px → **120–300 px** (nodes start further apart)
+- Link distances: hierarchy 30→55, contains 16→28, import 52→**90**
+- Charge repulsion: root −150→−280, dir −60→−110, file −32→−**55**
+- Collision padding: +4 → +**10** px buffer
+- Center gravity strength halved so nodes aren't pulled back together
+
+**Edge lines** softened:
+- Hierarchy opacity 4% → 2.5%, contains 8% → 4.5%, import rest 25% → **13%**
+- Import active stroke 1.75 px → 1.4 px; arrowheads 5 px → 4 px
+
+**Labels** improved:
+- Directory names always visible (like root), regardless of zoom
+- File labels appear at `k > 0.9` instead of `k > 1.2`
+- Normal font 9 px → **10 px**; directory labels tinted soft teal `#b2f5ea`
+- Label offset from node edge 5 px → **7 px**
+- Dark pill background `rgba(8,6,18, 0.58)` drawn behind each ambient label for contrast
+
+---
+
+## 17. Configurable Flow Particles
+
+The animated dots travelling along graph edges — called **flow particles** (or data-flow electrons) — are now fully configurable without touching the renderer:
+- **Location**: All particle settings live in the `flowParticles` block inside `src/lib/config/defaults.js`.
+- **Colour**: Changed from purple (`#a855f7`) to **warm amber-yellow** (`#fde047` fill, `#fbbf24` glow) to be visually distinct from edge lines and node colours.
+- **Size**: Import particles shrunk from 2.2 px → **1.4 px**; hierarchy/contains from 1.5 px → **0.9 px** — less visual noise at rest.
+- **Glow**: Ambient blur 5 px → **6 px**; active/highlighted blur 8 px → **12 px** for stronger feedback on selected edges.
+- **Config keys available**:
+  - `importRadius` / `otherRadius` — dot size in canvas pixels
+  - `importColor` / `otherColor` — `[r, g, b]` fill array
+  - `importGlowColor` / `otherGlowColor` — CSS shadow colour string
+  - `importGlowBlur` / `importGlowBlurActive` / `otherGlowBlur` — glow spread
+  - `importOpacity` / `otherOpacity` — fill transparency (0–1)
+  - `importSpeed` / `otherSpeed` — travel speed in cycles/second
+  - `activeSpeedMultiplier` — speed boost when the edge is selected/highlighted
