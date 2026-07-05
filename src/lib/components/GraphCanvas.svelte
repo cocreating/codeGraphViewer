@@ -523,24 +523,20 @@
 			}
 		}
 
-		if (hex === '#ffffff' || hex === '#f3f1f7') return `rgba(255, 255, 255, ${alpha})`;
-		const colors = {
-			'#a855f7': `rgba(168, 85, 247, ${alpha})`,
-			'#14b8a6': `rgba(20, 184, 166, ${alpha})`,
-			'#3b82f6': `rgba(59, 130, 246, ${alpha})`,
-			'#eab308': `rgba(234, 179, 8, ${alpha})`,
-			'#ec4899': `rgba(236, 72, 153, ${alpha})`,
-			'#f97316': `rgba(249, 115, 22, ${alpha})`,
-			'#22c55e': `rgba(34, 197, 94, ${alpha})`,
-			'#64748b': `rgba(100, 116, 139, ${alpha})`,
-			'#8b5cf6': `rgba(139, 92, 246, ${alpha})`,
-			'#06b6d4': `rgba(6, 182, 212, ${alpha})`,
-			'#f59e0b': `rgba(245, 158, 11, ${alpha})`,
-			'#84cc16': `rgba(132, 204, 22, ${alpha})`,
-			'#ef4444': `rgba(239, 68, 68, ${alpha})`,
-			'#a39cb4': `rgba(163, 156, 180, ${alpha})`
-		};
-		return colors[hex] || `rgba(168, 85, 247, ${alpha})`;
+		// Handle hex colors dynamically
+		let cleanHex = hex.replace('#', '').trim();
+		if (cleanHex.length === 3) {
+			cleanHex = cleanHex[0] + cleanHex[0] + cleanHex[1] + cleanHex[1] + cleanHex[2] + cleanHex[2];
+		}
+		if (cleanHex.length === 6) {
+			const r = parseInt(cleanHex.substring(0, 2), 16);
+			const g = parseInt(cleanHex.substring(2, 4), 16);
+			const b = parseInt(cleanHex.substring(4, 6), 16);
+			return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+		}
+
+		// Fallback to default purple
+		return `rgba(168, 85, 247, ${alpha})`;
 	};
 
 	// Camera glide function using GSAP
@@ -1000,13 +996,13 @@
 				const baseFontSize = (isSelected ? 11 : isHovered ? 10 : 9.5) * labelScale;
 				// Scale font size inversely by zoom level to keep on-screen size constant
 				const fontSize = baseFontSize / activeTransform.k;
-				ctx.font = isSelected
+				ctx.font = (isSelected || node.type === 'directory')
 					? `bold ${fontSize}px "Outfit", sans-serif`
 					: isHovered ? `500 ${fontSize}px "Outfit", sans-serif` : `${fontSize}px "Outfit", sans-serif`;
 
 				const textColor = isSelected
 					? '#ffffff'
-					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#b2f5ea' : labelColorOverride);
+					: isHovered ? '#f3f1f7' : labelColorOverride;
 
 				// Scale offsets and pill padding inversely by zoom level
 				const offset = (6 * labelScale) / activeTransform.k;
