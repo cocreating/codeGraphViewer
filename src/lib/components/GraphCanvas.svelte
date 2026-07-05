@@ -416,6 +416,24 @@
 	let height = $state(600);
 	let hoveredNode = $state(null);
 
+	// Cascade selection surge animation states
+	let lastSelectedNodeId = null;
+	let lastSelectionTime = 0;
+	let surgeActive = $state(false);
+
+	$effect(() => {
+		const currentId = selectedNode?.id || null;
+		if (currentId !== lastSelectedNodeId) {
+			lastSelectedNodeId = currentId;
+			if (currentId) {
+				lastSelectionTime = performance.now();
+				surgeActive = true;
+			} else {
+				surgeActive = false;
+			}
+		}
+	});
+
 	// 3D Orbit Camera States
 	let viewMode = $state('2d'); // '2d' or '3d'
 	let theta = $state(0);       // Y-axis rotation (horizontal)
@@ -581,6 +599,16 @@
 
 		ctx.save();
 		ctx.clearRect(0, 0, w, h);
+
+		let activeSurgeProgress = -1;
+		if (selectedNode && surgeActive) {
+			const elapsed = performance.now() - lastSelectionTime;
+			if (elapsed > 1000) {
+				surgeActive = false;
+			} else {
+				activeSurgeProgress = elapsed / 1000;
+			}
+		}
 
 		let activeTransform = transform;
 		if (isNaN(activeTransform.x) || isNaN(activeTransform.y) || isNaN(activeTransform.k)) {
@@ -790,12 +818,27 @@
 				ctx.lineWidth = 0.7;
 				ctx.setLineDash([2, 4]);
 			} else { // import
-				const color = isEdgeActive ? '168, 85, 247' : '168, 85, 247';
-				ctx.strokeStyle = `rgba(${color}, ${(isEdgeActive ? 0.45 : 0.13) * finalOpacity})`;
-				ctx.lineWidth = isEdgeActive ? 1.4 : 0.9;
+				if (isEdgeActive) {
+					// Draw glowing neon fiber-optic gradient pipeline
+					const grad = ctx.createLinearGradient(edge.source.px, edge.source.py, edge.target.px, edge.target.py);
+					grad.addColorStop(0, `rgba(168, 85, 247, ${0.72 * finalOpacity})`);
+					grad.addColorStop(0.5, `rgba(236, 72, 153, ${0.82 * finalOpacity})`);
+					grad.addColorStop(1, `rgba(34, 211, 238, ${0.95 * finalOpacity})`);
+					ctx.strokeStyle = grad;
+					ctx.lineWidth = 1.8;
+
+					// Active glowing shadows
+					ctx.shadowColor = 'rgba(168, 85, 247, 0.45)';
+					ctx.shadowBlur = 4;
+				} else {
+					const color = '168, 85, 247';
+					ctx.strokeStyle = `rgba(${color}, ${0.13 * finalOpacity})`;
+					ctx.lineWidth = 0.9;
+				}
 				ctx.setLineDash([4, 5]);
 			}
 			ctx.stroke();
+			ctx.shadowBlur = 0; // reset shadow
 			ctx.setLineDash([]);
 
 			// Precalculate dx, dy, dist for both arrow and particle drawing
@@ -870,6 +913,46 @@
 					ctx.fill();
 					ctx.shadowBlur = 0; // reset after each particle
 				}
+			}
+
+			// Draw cascade surge particle (one-time selection pulse)
+			if (activeSurgeProgress >= 0 && isEdgeActive && dist > 15) {
+				const sId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+				const tId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+
+				// Determine direction of travel relative to selected node
+				let progress = activeSurgeProgress;
+				if (selectedNode) {
+					if (tId === selectedNode.id) {
+						// Surge travels inward from source to target (progress: 0 -> 1)
+						progress = activeSurgeProgress;
+					} else if (sId === selectedNode.id) {
+						// Surge travels outward from source to target (progress: 0 -> 1)
+						progress = activeSurgeProgress;
+					} else {
+						// Transitive connection
+						progress = activeSurgeProgress;
+					}
+				}
+
+				const surgeX = edge.source.px + dx * progress;
+				const surgeY = edge.source.py + dy * progress;
+
+				ctx.beginPath();
+				// A bright glowing core particle
+				ctx.arc(surgeX, surgeY, 3.5, 0, 2 * Math.PI);
+				ctx.fillStyle = '#ffffff';
+				ctx.shadowColor = '#22d3ee'; // bright cyan glow
+				ctx.shadowBlur = 10;
+				ctx.fill();
+
+				// A larger halo particle
+				ctx.beginPath();
+				ctx.arc(surgeX, surgeY, 6.0, 0, 2 * Math.PI);
+				ctx.fillStyle = 'rgba(34, 211, 238, 0.35)';
+				ctx.fill();
+
+				ctx.shadowBlur = 0; // reset after drawing
 			}
 		});
 

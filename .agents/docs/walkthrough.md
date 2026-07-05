@@ -280,3 +280,13 @@ We introduced on-screen label optimizations and custom header control widgets:
 - **Single-Row Controls**: Converted the repository source inputs (`.repo-source-row`) and analysis buttons (`.analysis-actions`) to flexbox layouts. Under GitHub mode, the GitHub URL, PAT input, and Analyze submit button sit aligned on a single row.
 - **Responsive Layout**: Elements wrap vertically on mobile screens (max-width: 48em) to ensure usability.
 
+---
+
+## 21. Neon Laser-Beam Connection Pipelines
+
+We have added high-end aesthetic enhancements for active relationship rendering:
+
+- **Neon Gradient Trails**: Active import edges (connected to the selected node) are drawn as glowing fiber-optic pipelines using HTML5 Canvas gradients, shifting from purple (`rgba(168, 85, 247)`) at the source to pink (`rgba(236, 72, 153)`) in the middle to cyan (`rgba(34, 211, 238)`) at the target.
+- **Active Shadow Glow**: Active connections have a soft rendering shadow glow (`shadowBlur: 4` in purple) to stand out, while inactive lines remain dimmed out, maintaining optimal 60FPS canvas performance.
+- **Selection Cascade Surge**: Selecting a node triggers a 1000ms "power surge" animation. A high-speed white laser core (`#ffffff` with `#22d3ee` cyan glow) and transparent cyan halo shoot along the active connections to show data/impact propagation path.
+
