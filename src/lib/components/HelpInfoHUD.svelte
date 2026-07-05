@@ -53,20 +53,137 @@
 			description: 'Type names, paths, roles, languages, risk levels, imports, exports, or API endpoints. Matching results appear in a dropdown list.',
 			tip: 'Tip: Try searches like api, config, medium, svelte, package, or an imported module name.'
 		},
-		'heatmap_select': {
-			title: 'Metric Heatmap Overlay',
-			description: 'Colors and sizes file nodes by File Size, Folder Depth, Coupling, Risk Score, or Composite Complexity.',
-			tip: 'Tip: Risk Score highlights files that are large, highly coupled, widely depended on, or sensitive configuration/API surfaces.'
+		// Dynamic Color Mode select help
+		'color_mode_select_type': {
+			title: 'Color Mode: Node Type',
+			description: 'Colors nodes by their code category: Teal (Directory), Blue (File), Yellow (Class), Pink (Named Export), Orange (HTTP Endpoint), Green (Package).',
+			tip: 'Tip: Best for general file structure parsing.'
 		},
-		'color_mode_select': {
-			title: 'Node Color Mode',
-			description: 'Changes the graph color encoding between node type, architecture role, and deterministic risk level.',
-			tip: 'Tip: Use Architecture color to understand project layers, then Risk color to find review targets.'
+		'color_mode_select_role': {
+			title: 'Color Mode: Architecture Role',
+			description: 'Colors nodes by their logical architectural layer (e.g. components, routing, api, config, tests, assets).',
+			tip: 'Tip: Visualizes separation of concerns across codebase layers.'
 		},
-		'layout_select': {
-			title: 'Constellation Layouts',
-			description: 'Morphs nodes smoothly between layout geometries: 2D Plane, stacked 3D Tower, Fibonacci 3D Sphere, or helical 3D Cylinder.',
-			tip: 'Tip: Changing layouts plays a smooth GSAP morph animation.'
+		'color_mode_select_risk': {
+			title: 'Color Mode: Maintenance Risk',
+			description: 'Colors file nodes by their maintenance risk category: red (High), orange (Medium), green (Low).',
+			tip: 'Tip: Instantly flags fragile, oversized, or highly coupled modules.'
+		},
+
+		// Dynamic Heatmap select help
+		'heatmap_select_none': {
+			title: 'Heatmap Overlay: Off',
+			description: 'Nodes are rendered with their standard base sizes, simplifying the layout view.',
+			tip: 'Tip: Turn on heatmap metrics to overlay codebase stats directly on node dimensions.'
+		},
+		'heatmap_select_size': {
+			title: 'Heatmap: File Size',
+			description: 'Scales file nodes proportionally to their byte size. Larger nodes indicate heavier files.',
+			tip: 'Tip: Highlights oversized modules that are prime candidates for splitting.'
+		},
+		'heatmap_select_depth': {
+			title: 'Heatmap: Folder Depth',
+			description: 'Colors file nodes on a temperature scale by nesting depth. Red signifies deep folders.',
+			tip: 'Tip: Deep nesting increases path resolution friction and dependency tracking complexity.'
+		},
+		'heatmap_select_imports': {
+			title: 'Heatmap: Coupling (Imports)',
+			description: 'Scales nodes by their outgoing import statements. High imports indicate high coupling.',
+			tip: 'Tip: Large nodes rely on many other modules, making them susceptible to upstream changes.'
+		},
+		'heatmap_select_risk': {
+			title: 'Heatmap: Maintenance Risk',
+			description: 'Scales nodes by calculated maintenance risk (combining size, depth, imports, and dependent counts).',
+			tip: 'Tip: Larger red-orange nodes indicate hotspots that are risky to refactor.'
+		},
+		'heatmap_select_composite': {
+			title: 'Heatmap: Complexity Index',
+			description: 'Scales nodes using a composite of classes count, exports count, and import statements.',
+			tip: 'Tip: Shows files containing dense logic, exports, and OOP structures.'
+		},
+
+		// Dynamic Constellation Layout select help
+		'layout_select_force': {
+			title: 'Layout Option: Force 2D',
+			description: 'Standard physics simulation where nodes pull/repel naturally based on directory links and imports.',
+			tip: 'Tip: Excellent for discovering natural community structure and visual groupings.'
+		},
+		'layout_select_sticky_force': {
+			title: 'Layout Option: Sticky Force 2D',
+			description: 'D3 force physics layout that locks/pins dragged nodes permanently to their release position.',
+			tip: 'Tip: Allows manual layout sculpting. Clear all anchors with "Release Pinned" in the toolbar.'
+		},
+		'layout_select_radial': {
+			title: 'Layout Option: Radial Tree',
+			description: 'Plots the filesystem tree in concentric circles. Root sits at the center, fanning out into leaf file nodes.',
+			tip: 'Tip: PAUSES physics. Useful for comparing relative folder sizes and directory balance.'
+		},
+		'layout_select_dag': {
+			title: 'Layout Option: Dependency Layers',
+			description: 'Topological layout grouping modules in left-to-right tiers. Entry points are on the left; leaves are on the right.',
+			tip: 'Tip: Helps locate entry-point controllers vs leaf utility libraries, making imports flow unidirectionally.'
+		},
+		'layout_select_clusters': {
+			title: 'Layout Option: Role Clusters',
+			description: 'Arranges architectural roles in a ring of bubbles, drawing convex hull boundaries around grouped nodes.',
+			tip: 'Tip: Cross-bubble edges highlight dependencies leaking between code layers.'
+		},
+		'layout_select_scatter': {
+			title: 'Layout Option: Risk ✕ Importance Grid',
+			description: 'Plots file importance (blast radius) on the X-axis against maintenance risk (complexity) on the Y-axis.',
+			tip: 'Tip: Critical files occupy the top-right quadrant; safe utility leaves stay at the bottom-left.'
+		},
+		'layout_select_concentric': {
+			title: 'Layout Option: Concentric Rings',
+			description: 'Positions nodes in neat layered orbital circles (Root -> Packages -> Directories -> Files).',
+			tip: 'Tip: Focuses on architectural boundary divisions, separating directories from individual leaf files.'
+		},
+		'layout_select_grid': {
+			title: 'Layout Option: Structured Folder Grid',
+			description: 'Organizes files in rows and columns grouped by parent directories, framed by labeled cell boundaries.',
+			tip: 'Tip: Eliminates node overlaps completely, rendering the repository like a directory layout catalog.'
+		},
+
+		// Dynamic Canvas Viewport help
+		'canvas_force': {
+			title: 'Viewport: Force 2D Plane',
+			description: 'Move freely through the coordinate grid. Click background to pan; click and drag nodes to pull clusters.',
+			tip: 'Tip: Selected nodes speed up connection flow particles and dim unrelated edges.'
+		},
+		'canvas_sticky_force': {
+			title: 'Viewport: Sticky Force Canvas',
+			description: 'Simulated viewport where dragged nodes pin their positions, letting you sculpt layout clusters.',
+			tip: 'Tip: Look at the toolbar to see the number of pinned nodes, and click Release to reset.'
+		},
+		'canvas_radial': {
+			title: 'Viewport: Radial Tree View',
+			description: 'Static directory tree view. Zoom in to leaf nodes to read file names, or pan to explore directory branches.',
+			tip: 'Tip: Great for inspecting deep nested folders in a balanced circle.'
+		},
+		'canvas_dag': {
+			title: 'Viewport: Dependency Layers View',
+			description: 'Hierarchical layers showing import direction flow. Zoom in to trace long-range cross-tier imports.',
+			tip: 'Tip: Outgoing imports flow from left to right; backward paths signify import cycle warnings.'
+		},
+		'canvas_clusters': {
+			title: 'Viewport: Role Clusters View',
+			description: 'Browse architectural bubbles. Shaded hulls outline roles like Routing, API, Config, or Components.',
+			tip: 'Tip: Tightly isolated bubbles mean healthy separation of concerns.'
+		},
+		'canvas_scatter': {
+			title: 'Viewport: Risk ✕ Importance Scatter',
+			description: 'Four-quadrant scatter chart. Zoom in to read names of files in the top-right Critical segment.',
+			tip: 'Tip: Non-file nodes are stacked at the bottom edge, leaving the plot clear for file metrics.'
+		},
+		'canvas_concentric': {
+			title: 'Viewport: Concentric Rings View',
+			description: 'Layered concentric galaxy rings. Hover nodes to trace lines spanning between directory orbits.',
+			tip: 'Tip: Ideal for verifying how far down directory structures files reside.'
+		},
+		'canvas_grid': {
+			title: 'Viewport: Folder Catalog Grid',
+			description: 'Browse the repository layout as a directory sheet. Cell borders represent parent directories.',
+			tip: 'Tip: Best layout for structured reading and reviewing files directory-by-directory.'
 		},
 		'zoom_in': {
 			title: 'Zoom In',
@@ -82,11 +199,6 @@
 			title: 'Fit Content',
 			description: 'Resets the camera scale and center to fit the entire repository constellation perfectly inside the canvas.',
 			tip: 'Tip: Clears any active selection focus transitions.'
-		},
-		'canvas': {
-			title: 'Interactive Galaxy Viewport',
-			description: 'Shows directories and files. In 2D, you can pan and drag nodes. In 3D, dragging rotates the camera around the constellation. The top-right minimap shows your viewport inside the whole graph.',
-			tip: 'Tip: Selecting a node dims unrelated elements, accelerating packet particles on imports.'
 		},
 		'focus_strip': {
 			title: 'Selected Node Strip',

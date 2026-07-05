@@ -1876,7 +1876,7 @@
 				class="color-mode-select"
 				bind:value={colorMode}
 				title="Change Node Color Mode"
-				onmouseenter={() => onHelpKey?.('color_mode_select')}
+				onmouseenter={() => onHelpKey?.('color_mode_select_' + colorMode)}
 				onmouseleave={() => onHelpKey?.(null)}
 			>
 				<option value="type">Color: Type</option>
@@ -1889,7 +1889,7 @@
 				class="heatmap-select"
 				bind:value={heatmapMetric}
 				title="Toggle Complexity Heatmap"
-				onmouseenter={() => onHelpKey?.('heatmap_select')}
+				onmouseenter={() => onHelpKey?.('heatmap_select_' + heatmapMetric)}
 				onmouseleave={() => onHelpKey?.(null)}
 			>
 				<option value="none">Heatmap: Off</option>
@@ -1904,7 +1904,7 @@
 				class="layout-select"
 				bind:value={layoutMode}
 				title="Change Visualization Layout"
-				onmouseenter={() => onHelpKey?.('layout_select')}
+				onmouseenter={() => onHelpKey?.('layout_select_' + layoutMode)}
 				onmouseleave={() => onHelpKey?.(null)}
 			>
 				<option value="force">Layout: Force 2D</option>
@@ -1962,7 +1962,7 @@
 			onmouseup={handleMouseUp}
 			onmouseleave={(e) => { handleMouseUp(); onHelpKey?.(null); }}
 			onclick={handleClick}
-			onmouseenter={() => onHelpKey?.('canvas')}
+			onmouseenter={() => onHelpKey?.('canvas_' + layoutMode)}
 		></canvas>
 
 		{#if selectedNode}
