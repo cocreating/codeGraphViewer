@@ -2,6 +2,10 @@
 	import { onDestroy, untrack } from 'svelte';
 	import * as d3 from 'd3';
 	import { gsap } from 'gsap';
+	import { DEFAULT_APP_CONFIG } from '$lib/config/defaults.js';
+
+	// Flow particle config shorthand (read-only at render time — no reactivity needed)
+	const PC = DEFAULT_APP_CONFIG.flowParticles;
 
 	let {
 		graphData = { nodes: [], edges: [] },
@@ -567,16 +571,16 @@
 				}
 			}
 
-			// Draw glowing data flow particles along lines (only for active dependency paths)
+			// Draw glowing flow particles ("electrons") along edges
 			const shouldDrawParticles = !selectedNode || isEdgeActive;
 			if (shouldDrawParticles && dist > 15) {
 				const time = performance.now() * 0.001;
-				// Speed up particles on selected active edges for visual feedback!
-				const speedFactor = (selectedNode && isEdgeActive) ? 1.6 : 1.0;
-				const speed = (edge.type === 'import' ? 0.38 : 0.22) * speedFactor;
+				const speedFactor = (selectedNode && isEdgeActive) ? PC.activeSpeedMultiplier : 1.0;
+				const isImport = edge.type === 'import';
+				const speed = (isImport ? PC.importSpeed : PC.otherSpeed) * speedFactor;
 				const indexOffset = (edge.index || 0) * 0.37;
 
-				const numPackets = edge.type === 'import' ? 2 : 1;
+				const numPackets = isImport ? 2 : 1;
 				for (let p = 0; p < numPackets; p++) {
 					const offset = p * 0.5 + indexOffset;
 					const progress = (time * speed + offset) % 1.0;
@@ -586,24 +590,22 @@
 
 					ctx.beginPath();
 					const scaleMultiplier = viewMode === '3d' ? ((edge.source.projScale + edge.target.projScale) / 2) : 1.0;
-					const packetRadius = (edge.type === 'import' ? 2.2 : 1.5) * scaleMultiplier;
+					const packetRadius = (isImport ? PC.importRadius : PC.otherRadius) * scaleMultiplier;
 					ctx.arc(px, py, packetRadius, 0, 2 * Math.PI);
 
-					if (edge.type === 'import') {
-						ctx.fillStyle = `rgba(192, 132, 252, ${finalOpacity})`;
-						ctx.shadowColor = '#a855f7';
-						ctx.shadowBlur = isEdgeActive ? 8 : 5;
-					} else if (edge.type === 'contains') {
-						ctx.fillStyle = `rgba(255, 255, 255, ${0.5 * finalOpacity})`;
-						ctx.shadowColor = '#ffffff';
-						ctx.shadowBlur = 4;
-					} else { // hierarchy
-						ctx.fillStyle = `rgba(20, 184, 166, ${0.55 * finalOpacity})`;
-						ctx.shadowColor = '#14b8a6';
-						ctx.shadowBlur = 4;
+					if (isImport) {
+						const [r, g, b] = PC.importColor;
+						ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${PC.importOpacity * finalOpacity})`;
+						ctx.shadowColor = PC.importGlowColor;
+						ctx.shadowBlur = isEdgeActive ? PC.importGlowBlurActive : PC.importGlowBlur;
+					} else {
+						const [r, g, b] = PC.otherColor;
+						ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${PC.otherOpacity * finalOpacity})`;
+						ctx.shadowColor = PC.otherGlowColor;
+						ctx.shadowBlur = PC.otherGlowBlur;
 					}
 					ctx.fill();
-					ctx.shadowBlur = 0; // reset instantly
+					ctx.shadowBlur = 0; // reset after each particle
 				}
 			}
 		});
