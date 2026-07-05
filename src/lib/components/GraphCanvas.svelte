@@ -3,7 +3,14 @@
 	import * as d3 from 'd3';
 	import { gsap } from 'gsap';
 
-	let { graphData = { nodes: [], edges: [] }, selectedNode = null, onSelectNode } = $props();
+	let { 
+		graphData = { nodes: [], edges: [] }, 
+		selectedNode = null, 
+		onSelectNode, 
+		onHelpKey = null,
+		helpModeActive = $bindable(false),
+		activeHelpKey = $bindable(null)
+	} = $props();
 
 	let container = $state(null);
 	let canvas = $state(null);
@@ -1244,7 +1251,13 @@
 		</div>
 
 		<!-- Search Bar Component -->
-		<div class="search-container" style="position: relative; margin: 0 1.25rem; flex: 1; max-width: 250px;">
+		<div 
+			class="search-container" 
+			style="position: relative; margin: 0 1.25rem; flex: 1; max-width: 250px;"
+			role="search"
+			onmouseenter={() => onHelpKey?.('search_bar')}
+			onmouseleave={() => onHelpKey?.(null)}
+		>
 			<input
 				class="search-input"
 				type="text"
@@ -1278,6 +1291,8 @@
 				class="heatmap-select" 
 				bind:value={heatmapMetric}
 				title="Toggle Complexity Heatmap"
+				onmouseenter={() => onHelpKey?.('heatmap_select')}
+				onmouseleave={() => onHelpKey?.(null)}
 			>
 				<option value="none">Heatmap: Off</option>
 				<option value="size">Heatmap: File Size</option>
@@ -1291,15 +1306,30 @@
 				class="layout-select" 
 				bind:value={layoutMode}
 				title="Change Visualization Layout"
+				onmouseenter={() => onHelpKey?.('layout_select')}
+				onmouseleave={() => onHelpKey?.(null)}
 			>
 				<option value="2d">Layout: 2D Plane</option>
 				<option value="3d_tower">Layout: 3D Tower</option>
 				<option value="3d_sphere">Layout: 3D Sphere</option>
 				<option value="3d_cylinder">Layout: 3D Cylinder</option>
 			</select>
-			<button class="zoom-btn" onclick={() => handleZoom('in')} title="Zoom In">+</button>
-			<button class="zoom-btn" onclick={() => handleZoom('out')} title="Zoom Out">-</button>
-			<button class="zoom-btn" onclick={resetZoom} title="Fit Content">⛶</button>
+			
+			<!-- Interactive Help Toggle -->
+			<button 
+				class="zoom-btn {helpModeActive ? 'active-help' : ''}" 
+				onclick={() => { helpModeActive = !helpModeActive; if (!helpModeActive) { activeHelpKey = null; onHelpKey?.(null); } }} 
+				title="Toggle Interactive Help Panel"
+				style="width: auto; padding: 0 0.55rem; font-size: 0.72rem; font-weight: 600; font-family: var(--font-sans);"
+				onmouseenter={() => onHelpKey?.('help_toggle')}
+				onmouseleave={() => onHelpKey?.(null)}
+			>
+				{helpModeActive ? 'Help: On' : 'Help: Off'}
+			</button>
+
+			<button class="zoom-btn" onclick={() => handleZoom('in')} title="Zoom In" onmouseenter={() => onHelpKey?.('zoom_in')} onmouseleave={() => onHelpKey?.(null)}>+</button>
+			<button class="zoom-btn" onclick={() => handleZoom('out')} title="Zoom Out" onmouseenter={() => onHelpKey?.('zoom_out')} onmouseleave={() => onHelpKey?.(null)}>-</button>
+			<button class="zoom-btn" onclick={resetZoom} title="Fit Content" onmouseenter={() => onHelpKey?.('fit_content')} onmouseleave={() => onHelpKey?.(null)}>⛶</button>
 		</div>
 	</div>
 
@@ -1317,12 +1347,18 @@
 			onmousedown={handleMouseDown}
 			onmousemove={handleMouseMove}
 			onmouseup={handleMouseUp}
-			onmouseleave={handleMouseUp}
+			onmouseleave={(e) => { handleMouseUp(); onHelpKey?.(null); }}
 			onclick={handleClick}
+			onmouseenter={() => onHelpKey?.('canvas')}
 		></canvas>
 
 		{#if graphData.nodes && graphData.nodes.length > 0}
-			<div class="legend">
+			<div 
+				class="legend"
+				role="none"
+				onmouseenter={() => onHelpKey?.('legend')}
+				onmouseleave={() => onHelpKey?.(null)}
+			>
 				<div class="legend-item"><span class="legend-dot dot-dir"></span>Directory</div>
 				<div class="legend-item"><span class="legend-dot dot-file"></span>File</div>
 				<div class="legend-item"><span class="legend-dot dot-class"></span>Class</div>

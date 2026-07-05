@@ -3,11 +3,22 @@
 	import GraphCanvas from '$lib/components/GraphCanvas.svelte';
 	import InsightPanel from '$lib/components/InsightPanel.svelte';
 	import CodePreviewer from '$lib/components/CodePreviewer.svelte';
+	import HelpInfoHUD from '$lib/components/HelpInfoHUD.svelte';
 
 	// Svelte 5 reactive states
 	let graphData = $state({ nodes: [], edges: [] });
 	let selectedNode = $state(null);
 	let showCodePreview = $state(false);
+	
+	// Help Info panel states
+	let helpModeActive = $state(false);
+	let activeHelpKey = $state(null);
+
+	function handleHelpKey(key) {
+		if (helpModeActive) {
+			activeHelpKey = key;
+		}
+	}
 	
 	let mode = $state('github'); // 'github' or 'local'
 	let repoUrl = $state('');
@@ -109,6 +120,8 @@
 					class="tab-btn {mode === 'github' ? 'active' : ''}" 
 					type="button" 
 					onclick={() => { mode = 'github'; error = ''; }}
+					onmouseenter={() => handleHelpKey('github_tab')}
+					onmouseleave={() => handleHelpKey(null)}
 				>
 					GitHub Repo
 				</button>
@@ -116,6 +129,8 @@
 					class="tab-btn {mode === 'local' ? 'active' : ''}" 
 					type="button" 
 					onclick={() => { mode = 'local'; error = ''; }}
+					onmouseenter={() => handleHelpKey('local_tab')}
+					onmouseleave={() => handleHelpKey(null)}
 				>
 					Local Path
 				</button>
@@ -123,7 +138,12 @@
 
 			<div style="display: flex; gap: 0.75rem; width: 100%; align-items: flex-end;">
 				{#if mode === 'github'}
-					<div class="input-group">
+					<div 
+						class="input-group"
+						role="none"
+						onmouseenter={() => handleHelpKey('github_tab')}
+						onmouseleave={() => handleHelpKey(null)}
+					>
 						<label class="input-label" for="repo-url">GitHub Repo URL</label>
 						<input
 							id="repo-url"
@@ -136,7 +156,12 @@
 						/>
 					</div>
 					
-					<div class="input-group">
+					<div 
+						class="input-group"
+						role="none"
+						onmouseenter={() => handleHelpKey('github_tab')}
+						onmouseleave={() => handleHelpKey(null)}
+					>
 						<label class="input-label" for="git-pat">GitHub PAT (Optional)</label>
 						<input
 							id="git-pat"
@@ -148,7 +173,13 @@
 						/>
 					</div>
 				{:else}
-					<div class="input-group" style="flex: 2;">
+					<div 
+						class="input-group" 
+						style="flex: 2;"
+						role="none"
+						onmouseenter={() => handleHelpKey('local_tab')}
+						onmouseleave={() => handleHelpKey(null)}
+					>
 						<label class="input-label" for="local-path">Local Directory Path</label>
 						<input
 							id="local-path"
@@ -163,7 +194,14 @@
 				{/if}
 
 				<div style="display: flex; gap: 0.5rem; flex: 1;">
-					<button class="submit-btn" type="submit" disabled={loading} style="flex: 1; height: 38px;">
+					<button 
+						class="submit-btn" 
+						type="submit" 
+						disabled={loading} 
+						style="flex: 1; height: 38px;"
+						onmouseenter={() => handleHelpKey('analyze_btn')}
+						onmouseleave={() => handleHelpKey(null)}
+					>
 						{#if loading}
 							Analyzing...
 						{:else}
@@ -177,6 +215,8 @@
 							onclick={handleLoadDemo} 
 							disabled={loading} 
 							style="background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-blue) 100%); flex: 1; height: 38px;"
+							onmouseenter={() => handleHelpKey('demo_btn')}
+							onmouseleave={() => handleHelpKey(null)}
 						>
 							Demo
 						</button>
@@ -210,6 +250,15 @@
 				{graphData}
 				{selectedNode}
 				onSelectNode={handleSelectNode}
+				onHelpKey={handleHelpKey}
+				bind:helpModeActive={helpModeActive}
+				bind:activeHelpKey={activeHelpKey}
+			/>
+
+			<!-- Floating Help Information Card HUD Overlay -->
+			<HelpInfoHUD 
+				active={helpModeActive}
+				activeKey={activeHelpKey}
 			/>
 		</div>
 
@@ -225,7 +274,12 @@
 			{/if}
 
 			{#if analyzedDetails}
-				<div class="card">
+				<div 
+					class="card"
+					role="none"
+					onmouseenter={() => handleHelpKey('stats_card')}
+					onmouseleave={() => handleHelpKey(null)}
+				>
 					<div class="card-title">Repository Landscape Statistics</div>
 					<div class="stats-grid">
 						<div class="stat-card">
@@ -247,7 +301,8 @@
 			<InsightPanel 
 				{graphData} 
 				{selectedNode} 
-				onViewCode={() => showCodePreview = true} 
+				onViewCode={() => showCodePreview = true}
+				onHoverHelp={handleHelpKey}
 			/>
 		</aside>
 	</div>

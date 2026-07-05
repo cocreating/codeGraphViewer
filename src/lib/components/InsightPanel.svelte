@@ -1,5 +1,5 @@
 <script>
-	let { graphData = { nodes: [], edges: [] }, selectedNode = null, onViewCode } = $props();
+	let { graphData = { nodes: [], edges: [] }, selectedNode = null, onViewCode, onHoverHelp = null } = $props();
 
 	// Helper to resolve string source/target IDs from D3 edge objects
 	const getSourceId = (edge) => typeof edge.source === 'object' ? edge.source.id : edge.source;
@@ -70,7 +70,13 @@
 	let codeAnalysis = $derived(selectedNode && selectedNode.analysis ? selectedNode.analysis : null);
 </script>
 
-<div class="card" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+<div 
+	class="card" 
+	style="flex: 1; display: flex; flex-direction: column; min-height: 0;"
+	role="none"
+	onmouseenter={() => onHoverHelp?.('insights_panel')}
+	onmouseleave={() => onHoverHelp?.(null)}
+>
 	<div class="card-title">
 		Code Insights Panel
 		{#if selectedNode}
@@ -94,6 +100,8 @@
 					<button 
 						class="preview-code-btn"
 						onclick={onViewCode}
+						onmouseenter={(e) => { e.stopPropagation(); onHoverHelp?.('preview_btn'); }}
+						onmouseleave={(e) => { e.stopPropagation(); onHoverHelp?.('insights_panel'); }}
 						style="width: 100%; margin-top: 0.65rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.45rem; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; color: #d8b4fe; font-family: var(--font-sans); font-size: 0.75rem; font-weight: 600; cursor: pointer;"
 					>
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.2" stroke="currentColor" style="width: 0.85rem; height: 0.85rem;">

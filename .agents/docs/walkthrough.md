@@ -10,6 +10,7 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 7. **Complexity Heatmap Overlay** which visually encodes file complexity and coupling using size and color-temperature scales.
 8. **Slide-Out Glassmorphic Code Previewer** to view syntax-highlighted code contents directly inside the visualization.
 9. **Spherical Constellation & Cylindrical Morphing View Modes** to transition nodes smoothly between Tower, Sphere, and Cylinder 3D shapes.
+10. **Toggleable Interactive Help Info HUD** to reveal explanations and tips for every UI control as the user moves their cursor.
 
 ---
 
@@ -81,6 +82,16 @@ When a file node is selected, a prominent **View Source Code** button is rendere
 
 In 3D mode, the **Layout Selector** dropdown lets users morph the node constellation smoothly between different spatial coordinates:
 - **3D Tower Layout**: Arranges nodes by structural type in stacked depth layers, letting force simulation arrange them horizontally.
-- **3D Sphere Layout**: Projects the codebase onto a Fibonacci spherical distribution, creating a neat planetary boundary. D3 forces are paused to lock the geometry.
+- **3D Sphere Layout**: Projects the codebase onto a Fibonacci spherical distribution, creating a neat sphere constellation. D3 forces are paused to lock the geometry.
 - **3D Cylinder Layout**: Spans nodes in a double-helix cylinder spiral vertically, displaying codebase composition like DNA.
 - **GSAP Morphing**: Switching between any layout triggers a 1.35s GSAP animation that smoothly interpolates every node's `(x, y, z)` position. Panning, zooming, and camera orbits remain fully active during and after the morphs.
+
+---
+
+## 8. Interactive Help Info HUD
+
+We have added a toggleable **Interactive Help Info HUD** to assist users in navigating the visualizer:
+- **Help Toggle**: A toolbar toggle button activates/deactivates the help card HUD.
+- **Dynamic Descriptions**: When active, moving the cursor over any interactive button, select dropdown, tab, or sidebar section displays its dedicated header, function description, and action tips instantly.
+- **Fade Transitions**: Features smooth Svelte fade transitions during hovered item switches.
+- **A11y Compliant**: Designed with clean ARIA roles to keep HTML tags semantically correct.

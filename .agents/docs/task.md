@@ -8,3 +8,9 @@
   - [x] Apply shared styles for selects inside app.css
 - [x] Verify build compiles successfully (`npm run build`)
 - [x] Validate changes in browser
+- [x] Add toggleable Interactive Help Info HUD:
+  - [x] Define a comprehensive hover explanation dictionary for all 15 UI sections/buttons/fields
+  - [x] Create Svelte 5 HelpInfoHUD.svelte component with animated transitions
+  - [x] Wire up mouseenter and mouseleave handlers across GraphCanvas, InsightPanel, and +page.svelte
+  - [x] Resolve all Svelte AST compilation a11y warnings by adding appropriate ARIA roles
+  - [x] Verify production build and confirm smooth transitions in the browser
