@@ -7,6 +7,7 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 4. **Independent Drag-and-Drop** physics for both 2D and 3D space, preventing conflicts with zoom/pan behaviors.
 5. **Dependency Path Highlighting** which isolates selected node relationships by dimming unrelated files.
 6. **Semantic Search & Camera Focus** to easily find and focus on modules within large codebases.
+7. **Complexity Heatmap Overlay** which visually encodes file complexity and coupling using size and color-temperature scales.
 
 ---
 
@@ -48,3 +49,18 @@ We have integrated a glassmorphic **Fuzzy Search Bar** inside the visualizer too
 - **Fuzzy Search Matches**: Typing filters the files, modules, classes, and endpoints reactively, rendering matching results in a floating glass dropdown with file-type legend dots.
 - **Camera Focus Transition**: Selecting any match updates Svelte's selection state and triggers a smooth GSAP camera glide that centers and zooms the viewport directly onto the node.
 - **Responsive Flex Layout**: The search bar participates in the header's flexbox, ensuring a clean horizontal alignment next to the mode toggle and zoom controllers.
+
+---
+
+## 5. Step 3: Complexity Heatmap Overlay
+
+Selecting a complexity overlay from the dropdown menu temporarily overrides the visualization's default colors and sizes to reveal code smells instantly:
+- **Available Metrics**:
+  - *File Size*: Maps the raw size of files in bytes.
+  - *Folder Depth*: Maps file layout nesting depth.
+  - *Coupling (Imports)*: Maps internal dependency counts.
+  - *Complexity Index*: Composite score weighing file size, imports, and classes.
+- **Heat Gradient**: File nodes interpolate through a premium HSL heat gradient: Cyan (Low) -> Orange/Amber (Medium) -> Neon Red/Magenta (High).
+- **Size Scaling**: File node radii scale dynamically from `6px` to `20px` based on their normalized metric ratio.
+- **Background Dimming**: Directories, packages, and code symbols shrink and dim to a neutral slate gray, letting complex files float like glowing fireflies.
+- **HUD Screen Legend**: A floating glass card draws at the bottom-right of the screen to display the active metric title and gradient scale. It remains fixed during zoom/pan operations.

@@ -34,17 +34,17 @@ This document outlines the architecture, accomplishments, and future milestones 
   - Shows results in a floating glass dropdown.
   - Clicking a result automatically selects the node, glides the camera to focus on it, and triggers the dependency path highlighting.
 
+### 5. Step 3: File Complexity Heatmap Overlay
+- **Implementation**: Enabled visual size-scaling and HSL gradient maps based on codebase metrics.
+- **Effects**:
+  - Support for multiple metrics: File Size (Bytes), Folder Depth, Imports Count, and Composite Complexity Index.
+  - Normalizes metric values dynamically using reduce operations.
+  - Overrides node size and color dynamically, highlighting complex source files on a glowing Cyan-to-Red gradient, while shrinking directories and packages to a dark neutral slate background.
+  - Adds a floating canvas HUD legend panel at the bottom-right corner to show active metric labels and scale.
+
 ---
 
 ## 📅 Future Milestones
-
-### Step 3: File Complexity Heatmap Overlay [PLANNED]
-- **Objective**: Scale node sizes and color gradients based on codebase metrics (e.g. Lines of Code or nesting depth) to expose "code smells" at a glance.
-- **Implementation Plan**:
-  1. Leverage the metrics extracted during repo AST analysis (file size, depth).
-  2. Implement sizing scales (`d3.scaleLinear` or `d3.scaleSqrt`) mapping metrics to node radii.
-  3. Implement color scales (e.g., cool teal for low complexity to hot neon red for high complexity).
-  4. Add a "Complexity Heatmap" toggle in the toolbar to activate/deactivate the overlay.
 
 ### Step 4: Slide-Out Glassmorphic Code Previewer [PLANNED]
 - **Objective**: Allow users to inspect file code directly inside the visualizer without leaving the page.

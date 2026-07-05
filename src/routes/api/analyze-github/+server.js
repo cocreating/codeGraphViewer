@@ -4,20 +4,20 @@ import path from 'path';
 
 const demoNodes = [
 	{ id: 'root', name: 'CodeGraphViewer', type: 'root' },
-	{ id: 'package.json', name: 'package.json', type: 'file', ext: '.json' },
-	{ id: 'vite.config.js', name: 'vite.config.js', type: 'file', ext: '.js' },
+	{ id: 'package.json', name: 'package.json', type: 'file', ext: '.json', size: 466 },
+	{ id: 'vite.config.js', name: 'vite.config.js', type: 'file', ext: '.js', size: 747 },
 	{ id: 'src', name: 'src', type: 'directory' },
-	{ id: 'src/app.css', name: 'app.css', type: 'file', ext: '.css' },
+	{ id: 'src/app.css', name: 'app.css', type: 'file', ext: '.css', size: 13745 },
 	{ id: 'src/routes', name: 'routes', type: 'directory' },
-	{ id: 'src/routes/+layout.svelte', name: '+layout.svelte', type: 'file', ext: '.svelte' },
-	{ id: 'src/routes/+page.svelte', name: '+page.svelte', type: 'file', ext: '.svelte', analysis: { classesCount: 0, exportsCount: 0, importsCount: 2, endpointsCount: 0, classes: [], exports: [], imports: ['$lib/components/GraphCanvas.svelte', '$lib/components/InsightPanel.svelte'], endpoints: [] } },
+	{ id: 'src/routes/+layout.svelte', name: '+layout.svelte', type: 'file', ext: '.svelte', size: 2690 },
+	{ id: 'src/routes/+page.svelte', name: '+page.svelte', type: 'file', ext: '.svelte', size: 16190, analysis: { classesCount: 0, exportsCount: 0, importsCount: 2, endpointsCount: 0, classes: [], exports: [], imports: ['$lib/components/GraphCanvas.svelte', '$lib/components/InsightPanel.svelte'], endpoints: [] } },
 	{ id: 'src/routes/api', name: 'api', type: 'directory' },
 	{ id: 'src/routes/api/analyze-github', name: 'analyze-github', type: 'directory' },
-	{ id: 'src/routes/api/analyze-github/+server.js', name: '+server.js', type: 'file', ext: '.js', analysis: { classesCount: 0, exportsCount: 1, importsCount: 1, endpointsCount: 1, classes: [], exports: ['POST'], imports: ['@sveltejs/kit'], endpoints: ['POST /api/analyze-github'] } },
+	{ id: 'src/routes/api/analyze-github/+server.js', name: '+server.js', type: 'file', ext: '.js', size: 23385, analysis: { classesCount: 0, exportsCount: 1, importsCount: 1, endpointsCount: 1, classes: [], exports: ['POST'], imports: ['@sveltejs/kit'], endpoints: ['POST /api/analyze-github'] } },
 	{ id: 'src/lib', name: 'lib', type: 'directory' },
 	{ id: 'src/lib/components', name: 'components', type: 'directory' },
-	{ id: 'src/lib/components/GraphCanvas.svelte', name: 'GraphCanvas.svelte', type: 'file', ext: '.svelte', analysis: { classesCount: 1, exportsCount: 2, importsCount: 2, endpointsCount: 0, classes: ['ForceSimulation'], exports: ['getNodeRadius', 'getNodeColor'], imports: ['d3', 'svelte'], endpoints: [] } },
-	{ id: 'src/lib/components/InsightPanel.svelte', name: 'InsightPanel.svelte', type: 'file', ext: '.svelte', analysis: { classesCount: 0, exportsCount: 0, importsCount: 0, endpointsCount: 0, classes: [], exports: [], imports: [], endpoints: [] } },
+	{ id: 'src/lib/components/GraphCanvas.svelte', name: 'GraphCanvas.svelte', type: 'file', ext: '.svelte', size: 31144, analysis: { classesCount: 1, exportsCount: 2, importsCount: 2, endpointsCount: 0, classes: ['ForceSimulation'], exports: ['getNodeRadius', 'getNodeColor'], imports: ['d3', 'svelte'], endpoints: [] } },
+	{ id: 'src/lib/components/InsightPanel.svelte', name: 'InsightPanel.svelte', type: 'file', ext: '.svelte', size: 1920, analysis: { classesCount: 0, exportsCount: 0, importsCount: 0, endpointsCount: 0, classes: [], exports: [], imports: [], endpoints: [] } },
 	
 	// Inner structures
 	{ id: 'src/routes/api/analyze-github/+server.js#endpoint:POST:/api/analyze-github', name: 'POST /api/analyze-github', type: 'endpoint', file: 'src/routes/api/analyze-github/+server.js' },
@@ -301,7 +301,7 @@ export async function POST({ request }) {
 				}
 			} else {
 				const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
-				nodes.push({ id: path, name, type: 'file', ext });
+				nodes.push({ id: path, name, type: 'file', ext, size: item.size || 0 });
 				const parentId = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : 'root';
 				edges.push({ source: parentId, target: path, type: 'hierarchy' });
 			}

@@ -26,6 +26,37 @@
 		searchQuery = '';
 	};
 
+	// Heatmap states
+	let heatmapMetric = $state('none');
+
+	// Helper score formula
+	const getCompositeScore = (node) => {
+		if (node.type !== 'file') return 0;
+		const sizeScore = (node.size || 0) / 200;
+		const importsScore = (node.analysis?.importsCount || 0) * 5;
+		const classesScore = (node.analysis?.classesCount || 0) * 10;
+		return sizeScore + importsScore + classesScore;
+	};
+
+	// Derived metrics maximums (bulletproof reductions)
+	let fileNodes = $derived(graphData.nodes ? graphData.nodes.filter(n => n.type === 'file') : []);
+	let maxFileSize = $derived(fileNodes.length > 0 ? fileNodes.reduce((max, n) => Math.max(max, n.size || 0), 1) : 1);
+	let maxDepth = $derived(graphData.nodes ? graphData.nodes.reduce((max, n) => Math.max(max, n.id ? n.id.split('/').length - 1 : 0), 1) : 1);
+	let maxImports = $derived(fileNodes.length > 0 ? fileNodes.reduce((max, n) => Math.max(max, n.analysis?.importsCount || 0), 1) : 1);
+	let maxComposite = $derived(fileNodes.length > 0 ? fileNodes.reduce((max, n) => Math.max(max, getCompositeScore(n)), 1) : 1);
+
+	// Heatmap Color scale (Cyan -> Orange -> Red HSL hue interpolation)
+	const getHeatColor = (ratio) => {
+		const r = Math.max(0, Math.min(1, ratio));
+		let hue;
+		if (r < 0.5) {
+			hue = 190 - (r * 2) * (190 - 45); // Cyan (190) to Amber (45)
+		} else {
+			hue = 45 - ((r - 0.5) * 2) * 45;   // Amber (45) to Neon Red (0)
+		}
+		return `hsl(${hue}, 95%, 60%)`;
+	};
+
 	// Local non-reactive copies of nodes and edges for the D3 simulation
 	let localNodes = [];
 	let localEdges = [];
@@ -418,27 +449,71 @@
 				}
 			}
 
-			const nodeScale = node.scale !== undefined ? node.scale : 1.0;
-			const nodeSelectScale = node.selectScale !== undefined ? node.selectScale : 1.0;
-			const projScale = node.projScale !== undefined ? node.projScale : 1.0;
-			const radius = getNodeRadius(node.type) * nodeScale * nodeSelectScale * projScale;
+			let nodeScale = node.scale !== undefined ? node.scale : 1.0;
+			let nodeSelectScale = node.selectScale !== undefined ? node.selectScale : 1.0;
+			let projScale = node.projScale !== undefined ? node.projScale : 1.0;
 			
-			if (radius <= 0.15) return; // skip rendering if scaled to 0
+			let radius = getNodeRadius(node.type) * nodeScale * nodeSelectScale * projScale;
+			let baseColor = getNodeColor(node.type, isSelected, isHovered);
+			let extraOpacityFactor = 1.0;
 
-			const baseColor = getNodeColor(node.type, isSelected, isHovered);
+			// Complexity Heatmap overlays override node styles
+			if (heatmapMetric !== 'none') {
+				if (node.type === 'file') {
+					let ratio = 0;
+					if (heatmapMetric === 'size') {
+						ratio = (node.size || 0) / maxFileSize;
+					} else if (heatmapMetric === 'depth') {
+						const depth = node.id ? node.id.split('/').length - 1 : 0;
+						ratio = depth / maxDepth;
+					} else if (heatmapMetric === 'imports') {
+						ratio = (node.analysis?.importsCount || 0) / maxImports;
+					} else if (heatmapMetric === 'composite') {
+						ratio = getCompositeScore(node) / maxComposite;
+					}
+					ratio = Math.max(0, Math.min(1, ratio));
+
+					radius = (5.5 + ratio * 14.5) * nodeScale * nodeSelectScale * projScale;
+					baseColor = getHeatColor(ratio);
+				} else if (node.type !== 'root') {
+					// Shrink and dim background non-file components to let the heatmap files pop
+					radius = 3.0 * nodeScale * nodeSelectScale * projScale;
+					baseColor = '#374151'; // neutral slate
+					extraOpacityFactor = 0.25;
+				}
+			}
+
+			if (radius <= 0.15) return; // skip rendering if scaled to 0
 			
 			let depthOpacity = 1.0;
 			if (viewMode === '3d') {
 				depthOpacity = Math.max(0.25, Math.min(1.0, 1.0 - (node.depthZ + 100) / 320));
 			}
 
-			const finalOpacity = depthOpacity * highlightOpacity;
+			const finalOpacity = depthOpacity * highlightOpacity * extraOpacityFactor;
 
 			// Draw glowing aura
 			ctx.beginPath();
 			ctx.arc(node.px, node.py, radius + (isSelected ? 7 : isHovered ? 4.5 : 2.5), 0, 2 * Math.PI);
-			ctx.fillStyle = hexToRgba(baseColor, (isSelected ? 0.42 : isHovered ? 0.28 : 0.12) * finalOpacity);
+			
+			// Increase shadow blur and intensity for high-complexity heat nodes!
+			let auraColor = baseColor;
+			let auraOpacity = (isSelected ? 0.42 : isHovered ? 0.28 : 0.12) * finalOpacity;
+			if (heatmapMetric !== 'none' && node.type === 'file') {
+				const ratio = heatmapMetric === 'size' ? (node.size || 0) / maxFileSize
+					: heatmapMetric === 'depth' ? (node.id ? node.id.split('/').length - 1 : 0) / maxDepth
+					: heatmapMetric === 'imports' ? (node.analysis?.importsCount || 0) / maxImports
+					: getCompositeScore(node) / maxComposite;
+				if (ratio > 0.65) {
+					ctx.shadowColor = baseColor;
+					ctx.shadowBlur = 10 * nodeSelectScale;
+					auraOpacity = 0.5 * finalOpacity;
+				}
+			}
+
+			ctx.fillStyle = hexToRgba(auraColor, auraOpacity);
 			ctx.fill();
+			ctx.shadowBlur = 0; // reset instantly
 
 			// Draw main circle
 			ctx.beginPath();
@@ -452,9 +527,14 @@
 			ctx.stroke();
 
 			// Draw text labels
-			const showLabel = isSelected || isHovered || node.type === 'root' || 
+			let showLabel = isSelected || isHovered || node.type === 'root' || 
 				(activeTransform.k > 1.2 && (node.type === 'file' || node.type === 'directory') && (!selectedNode || activeNodes.has(node.id))) ||
 				(activeTransform.k > 2.0 && (!selectedNode || activeNodes.has(node.id)));
+			
+			// Hide non-file labels in heatmap mode to declutter visualization
+			if (heatmapMetric !== 'none' && node.type !== 'file' && node.type !== 'root' && !isSelected && !isHovered) {
+				showLabel = false;
+			}
 
 			if (showLabel) {
 				ctx.font = isSelected 
@@ -474,6 +554,55 @@
 				ctx.shadowBlur = 0;
 			}
 		});
+
+		// 4. Draw Canvas HUD Screen Legend Overlay
+		if (heatmapMetric !== 'none') {
+			ctx.save();
+			// Reset translation and scale so we draw legend in screen space coordinates!
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+
+			// Draw glass card background in the bottom-right corner
+			const lx = w - 245;
+			const ly = h - 60;
+			const lw = 225;
+			const lh = 42;
+
+			ctx.fillStyle = 'rgba(12, 10, 20, 0.82)';
+			ctx.strokeStyle = 'rgba(168, 85, 247, 0.25)';
+			ctx.lineWidth = 1.25;
+			
+			ctx.beginPath();
+			ctx.roundRect(lx, ly, lw, lh, 8);
+			ctx.fill();
+			ctx.stroke();
+
+			// Draw gradient bar
+			const grad = ctx.createLinearGradient(lx + 12, ly + 25, lx + lw - 12, ly + 25);
+			grad.addColorStop(0.0, 'hsl(190, 95%, 60%)');   // Low: Cyan
+			grad.addColorStop(0.5, 'hsl(45, 95%, 60%)');    // Med: Orange/Amber
+			grad.addColorStop(1.0, 'hsl(0, 95%, 60%)');     // High: Neon Red
+			
+			ctx.fillStyle = grad;
+			ctx.fillRect(lx + 12, ly + 20, lw - 24, 6);
+
+			// Legend Text
+			ctx.fillStyle = '#ffffff';
+			ctx.font = 'bold 9.5px "Outfit", sans-serif';
+			const metricLabel = heatmapMetric === 'size' ? 'File Size (Bytes)' 
+				: heatmapMetric === 'depth' ? 'Directory Depth'
+				: heatmapMetric === 'imports' ? 'Coupling (Imports Count)'
+				: 'Composite Complexity Index';
+			ctx.fillText(metricLabel, lx + 12, ly + 13);
+
+			ctx.font = 'bold 8px "Outfit", sans-serif';
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+			ctx.fillText('Low', lx + 12, ly + 34);
+			ctx.fillText('High', lx + lw - 32, ly + 34);
+
+			ctx.restore();
+		}
 
 		ctx.restore();
 	};
@@ -1027,6 +1156,19 @@
 		</div>
 
 		<div class="zoom-controls">
+			<!-- Complexity Heatmap selector -->
+			<select 
+				class="heatmap-select" 
+				bind:value={heatmapMetric}
+				title="Toggle Complexity Heatmap"
+			>
+				<option value="none">Heatmap: Off</option>
+				<option value="size">Heatmap: File Size</option>
+				<option value="depth">Heatmap: Folder Depth</option>
+				<option value="imports">Heatmap: Coupling (Imports)</option>
+				<option value="composite">Heatmap: Complexity Index</option>
+			</select>
+
 			<button class="zoom-btn mode-toggle-btn" onclick={toggleViewMode} title="Toggle 2D/3D Mode" style="width: auto; padding: 0 0.55rem; font-size: 0.75rem; font-weight: 600; font-family: var(--font-sans);">
 				{viewMode === '2d' ? '3D Orbit' : '2D Plane'}
 			</button>
