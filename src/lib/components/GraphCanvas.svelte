@@ -55,7 +55,39 @@
 
 	// Heatmap states
 	let heatmapMetric = $state('none');
+	let colorMode = $state('type'); // 'type', 'role', 'risk'
 	let layoutMode = $state('2d'); // '2d', '3d_tower', '3d_sphere', '3d_cylinder'
+
+	const roleColors = {
+		root: '#ffffff',
+		folder: '#64748b',
+		source: '#3b82f6',
+		components: '#8b5cf6',
+		routing: '#06b6d4',
+		api: '#f97316',
+		config: '#f59e0b',
+		styles: '#ec4899',
+		docs: '#22c55e',
+		tests: '#84cc16',
+		assets: '#14b8a6'
+	};
+
+	const roleLegend = [
+		['components', 'Components'],
+		['routing', 'Routing'],
+		['api', 'API'],
+		['config', 'Config'],
+		['styles', 'Styles'],
+		['docs', 'Docs'],
+		['tests', 'Tests'],
+		['source', 'Source']
+	];
+
+	const riskColors = {
+		high: '#ef4444',
+		medium: '#f97316',
+		low: '#22c55e'
+	};
 
 	// Fibonacci Sphere Coordinate Generator
 	const getSphericalPos = (index, total) => {
@@ -198,6 +230,13 @@
 		}
 	};
 
+	const getSemanticNodeColor = (node, isSelected, isHovered) => {
+		if (isSelected || isHovered) return getNodeColor(node.type, isSelected, isHovered);
+		if (colorMode === 'role') return roleColors[node.role] || roleColors.source;
+		if (colorMode === 'risk' && node.type === 'file') return riskColors[node.riskLevel] || riskColors.low;
+		return getNodeColor(node.type, isSelected, isHovered);
+	};
+
 	const hexToRgba = (hex, alpha) => {
 		// Handle HSL strings (from heatmap colors)
 		if (hex.startsWith('hsl(')) {
@@ -245,6 +284,12 @@
 			'#ec4899': `rgba(236, 72, 153, ${alpha})`,
 			'#f97316': `rgba(249, 115, 22, ${alpha})`,
 			'#22c55e': `rgba(34, 197, 94, ${alpha})`,
+			'#64748b': `rgba(100, 116, 139, ${alpha})`,
+			'#8b5cf6': `rgba(139, 92, 246, ${alpha})`,
+			'#06b6d4': `rgba(6, 182, 212, ${alpha})`,
+			'#f59e0b': `rgba(245, 158, 11, ${alpha})`,
+			'#84cc16': `rgba(132, 204, 22, ${alpha})`,
+			'#ef4444': `rgba(239, 68, 68, ${alpha})`,
 			'#a39cb4': `rgba(163, 156, 180, ${alpha})`
 		};
 		return colors[hex] || `rgba(168, 85, 247, ${alpha})`;
@@ -593,7 +638,7 @@
 			let projScale = node.projScale !== undefined ? node.projScale : 1.0;
 
 			let radius = getNodeRadius(node.type) * nodeScale * nodeSelectScale * projScale;
-			let baseColor = getNodeColor(node.type, isSelected, isHovered);
+			let baseColor = getSemanticNodeColor(node, isSelected, isHovered);
 			let extraOpacityFactor = 1.0;
 
 			// Complexity Heatmap overlays override node styles
@@ -748,6 +793,83 @@
 			ctx.fillText('Low', lx + 12, ly + 34);
 			ctx.fillText('High', lx + lw - 32, ly + 34);
 
+			ctx.restore();
+		}
+
+		if (localNodes.length > 0) {
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+
+			const mapW = 170;
+			const mapH = 116;
+			const mapX = w - mapW - 18;
+			const mapY = 18;
+			const pad = 12;
+
+			const minX = d3.min(localNodes, node => node.x ?? 0) ?? 0;
+			const maxX = d3.max(localNodes, node => node.x ?? 0) ?? 1;
+			const minY = d3.min(localNodes, node => node.y ?? 0) ?? 0;
+			const maxY = d3.max(localNodes, node => node.y ?? 0) ?? 1;
+			const spanX = Math.max(1, maxX - minX);
+			const spanY = Math.max(1, maxY - minY);
+			const mapScale = Math.min((mapW - pad * 2) / spanX, (mapH - pad * 2) / spanY);
+			const offsetX = mapX + mapW / 2 - ((minX + maxX) / 2) * mapScale;
+			const offsetY = mapY + mapH / 2 - ((minY + maxY) / 2) * mapScale;
+
+			ctx.fillStyle = 'rgba(12, 10, 20, 0.78)';
+			ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.roundRect(mapX, mapY, mapW, mapH, 8);
+			ctx.fill();
+			ctx.stroke();
+
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
+			ctx.font = 'bold 9px "Outfit", sans-serif';
+			ctx.fillText('MINIMAP', mapX + 10, mapY + 15);
+
+			localEdges.forEach(edge => {
+				if (!edge.source || !edge.target || typeof edge.source !== 'object' || typeof edge.target !== 'object') return;
+				const sx = offsetX + (edge.source.x ?? 0) * mapScale;
+				const sy = offsetY + (edge.source.y ?? 0) * mapScale;
+				const tx = offsetX + (edge.target.x ?? 0) * mapScale;
+				const ty = offsetY + (edge.target.y ?? 0) * mapScale;
+				ctx.strokeStyle = edge.type === 'import' ? 'rgba(168, 85, 247, 0.28)' : 'rgba(255, 255, 255, 0.08)';
+				ctx.lineWidth = edge.type === 'import' ? 0.8 : 0.5;
+				ctx.beginPath();
+				ctx.moveTo(sx, sy);
+				ctx.lineTo(tx, ty);
+				ctx.stroke();
+			});
+
+			localNodes.forEach(node => {
+				const mx = offsetX + (node.x ?? 0) * mapScale;
+				const my = offsetY + (node.y ?? 0) * mapScale;
+				const isSelected = selectedNode && selectedNode.id === node.id;
+				const isActive = !selectedNode || activeNodes.has(node.id);
+				ctx.beginPath();
+				ctx.arc(mx, my, isSelected ? 3.2 : node.type === 'root' ? 2.6 : 1.8, 0, 2 * Math.PI);
+				ctx.fillStyle = isSelected
+					? '#ffffff'
+					: hexToRgba(getSemanticNodeColor(node, false, false), isActive ? 0.85 : 0.22);
+				ctx.fill();
+			});
+
+			const viewLeft = activeTransform.invertX(0);
+			const viewTop = activeTransform.invertY(0);
+			const viewRight = activeTransform.invertX(w);
+			const viewBottom = activeTransform.invertY(h);
+			const vx = offsetX + viewLeft * mapScale;
+			const vy = offsetY + viewTop * mapScale;
+			const vw = Math.max(5, (viewRight - viewLeft) * mapScale);
+			const vh = Math.max(5, (viewBottom - viewTop) * mapScale);
+			ctx.strokeStyle = 'rgba(255, 255, 255, 0.62)';
+			ctx.lineWidth = 1.2;
+			ctx.setLineDash([3, 3]);
+			ctx.strokeRect(vx, vy, vw, vh);
+			ctx.setLineDash([]);
 			ctx.restore();
 		}
 
@@ -1394,6 +1516,19 @@
 		</div>
 
 		<div class="zoom-controls">
+			<!-- Semantic Color Mode selector -->
+			<select
+				class="color-mode-select"
+				bind:value={colorMode}
+				title="Change Node Color Mode"
+				onmouseenter={() => onHelpKey?.('color_mode_select')}
+				onmouseleave={() => onHelpKey?.(null)}
+			>
+				<option value="type">Color: Type</option>
+				<option value="role">Color: Architecture</option>
+				<option value="risk">Color: Risk</option>
+			</select>
+
 			<!-- Complexity Heatmap selector -->
 			<select
 				class="heatmap-select"
@@ -1461,6 +1596,26 @@
 			onmouseenter={() => onHelpKey?.('canvas')}
 		></canvas>
 
+		{#if selectedNode}
+			<div
+				class="graph-focus-strip"
+				role="none"
+				onmouseenter={() => onHelpKey?.('focus_strip')}
+				onmouseleave={() => onHelpKey?.(null)}
+			>
+				<div>
+					<span class="focus-eyebrow">Focused Node</span>
+					<strong>{selectedNode.name}</strong>
+					<small>{selectedNode.id}</small>
+				</div>
+				<div class="focus-strip-metrics">
+					<span>{selectedNode.role || selectedNode.type}</span>
+					<span>{selectedNode.riskLevel || 'n/a'} risk</span>
+					<span>{focusMode}</span>
+				</div>
+			</div>
+		{/if}
+
 		{#if graphData.nodes && graphData.nodes.length > 0}
 			<div
 				class="legend"
@@ -1468,12 +1623,23 @@
 				onmouseenter={() => onHelpKey?.('legend')}
 				onmouseleave={() => onHelpKey?.(null)}
 			>
-				<div class="legend-item"><span class="legend-dot dot-dir"></span>Directory</div>
-				<div class="legend-item"><span class="legend-dot dot-file"></span>File</div>
-				<div class="legend-item"><span class="legend-dot dot-class"></span>Class</div>
-				<div class="legend-item"><span class="legend-dot dot-export"></span>Export</div>
-				<div class="legend-item"><span class="legend-dot dot-endpoint"></span>Endpoint</div>
-				<div class="legend-item"><span class="legend-dot dot-pkg"></span>Package</div>
+				{#if colorMode === 'role'}
+					{#each roleLegend as [role, label]}
+						<div class="legend-item"><span class="legend-dot" style="background: {roleColors[role]}; box-shadow: 0 0 6px {roleColors[role]};"></span>{label}</div>
+					{/each}
+				{:else if colorMode === 'risk'}
+					<div class="legend-item"><span class="legend-dot" style="background: {riskColors.high}; box-shadow: 0 0 6px {riskColors.high};"></span>High Risk</div>
+					<div class="legend-item"><span class="legend-dot" style="background: {riskColors.medium}; box-shadow: 0 0 6px {riskColors.medium};"></span>Medium Risk</div>
+					<div class="legend-item"><span class="legend-dot" style="background: {riskColors.low}; box-shadow: 0 0 6px {riskColors.low};"></span>Low Risk</div>
+					<div class="legend-item"><span class="legend-dot dot-dir"></span>Directory</div>
+				{:else}
+					<div class="legend-item"><span class="legend-dot dot-dir"></span>Directory</div>
+					<div class="legend-item"><span class="legend-dot dot-file"></span>File</div>
+					<div class="legend-item"><span class="legend-dot dot-class"></span>Class</div>
+					<div class="legend-item"><span class="legend-dot dot-export"></span>Export</div>
+					<div class="legend-item"><span class="legend-dot dot-endpoint"></span>Endpoint</div>
+					<div class="legend-item"><span class="legend-dot dot-pkg"></span>Package</div>
+				{/if}
 			</div>
 		{/if}
 	</div>

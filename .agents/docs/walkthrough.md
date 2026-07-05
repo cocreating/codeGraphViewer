@@ -14,6 +14,8 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 11. **Repository Overview Dashboard** with project type, stack detection, language breakdown, entry points, health metrics, risk hotspots, and reading path.
 12. **Smart File Explorer** with role/risk filters, file-level metrics, graph selection, and deterministic risk ranking.
 13. **Navigation Orientation Layer** with breadcrumbs, recent files, pinned files, graph focus modes, and Open in GitHub actions.
+14. **Local-First Loading** which opens directly on the CodeGraphViewer local repository example and keeps GitHub analysis available as a secondary mode.
+15. **Graph Visualization Orientation Upgrades** with semantic color modes, a minimap, selected-node focus strip, and dynamic legends.
 
 ---
 
@@ -134,3 +136,23 @@ The Navigation Panel keeps orientation and review actions visible while explorin
 - **Recently Viewed**: Tracks recently selected nodes during the current analysis session.
 - **Pinned Files**: Lets users keep important files available while jumping around the graph.
 - **Insight Quick Actions**: Mirrors the most common relationship actions in the selected-node details panel.
+
+---
+
+## 12. Local-First Loading
+
+The app now starts in Local Repo mode and analyzes the CodeGraphViewer local repository by default:
+- **Default Example**: The local CodeGraphViewer path is prefilled and loaded on first mount.
+- **Local Repo Selector**: A compact selector switches between the CodeGraphViewer example and a custom local path.
+- **Example Action**: The Example button restores and analyzes the known local repository after experimenting with custom paths.
+- **GitHub Mode**: GitHub URL analysis remains available from the mode tabs when remote repository exploration is needed.
+
+---
+
+## 13. Graph Visualization Orientation Upgrades
+
+The graph now includes additional visual encodings for architecture and orientation:
+- **Color Modes**: The toolbar can color nodes by structural type, architecture role, or risk level.
+- **Dynamic Legend**: The legend changes with the selected color mode so color meaning stays explicit.
+- **Minimap**: A top-right minimap shows the whole graph, active nodes, and the current viewport rectangle.
+- **Selected Node Strip**: A compact overlay keeps the active node name, path, role, risk level, and focus mode visible while zoomed in.

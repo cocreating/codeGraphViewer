@@ -7,6 +7,7 @@ This document details the libraries, runtime tools, and custom algorithms that p
 ## 1. Core Framework & Routing
 - **Svelte 5**: Leverages the new runes system (`$state`, `$derived`, `$effect`, `$bindable`, and `$state.snapshot`) for reactive bindings and state management.
 - **SvelteKit**: Handles server-side rendering (SSR), layout routing, and backend endpoints.
+- **Default App Config**: `src/lib/config/defaults.js` defines the default mode, default focus mode, and local repository presets used by the first-run experience.
 
 ---
 

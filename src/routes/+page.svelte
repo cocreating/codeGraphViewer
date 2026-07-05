@@ -1,5 +1,5 @@
 <script>
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import GraphCanvas from '$lib/components/GraphCanvas.svelte';
 	import InsightPanel from '$lib/components/InsightPanel.svelte';
 	import CodePreviewer from '$lib/components/CodePreviewer.svelte';
@@ -7,6 +7,10 @@
 	import RepositoryOverview from '$lib/components/RepositoryOverview.svelte';
 	import SmartExplorer from '$lib/components/SmartExplorer.svelte';
 	import NavigationPanel from '$lib/components/NavigationPanel.svelte';
+	import { DEFAULT_APP_CONFIG, getDefaultLocalRepository } from '$lib/config/defaults.js';
+
+	const defaultLocalRepository = getDefaultLocalRepository();
+	const localRepoPresets = DEFAULT_APP_CONFIG.localRepositories;
 
 	// Svelte 5 reactive states
 	let graphData = $state({ nodes: [], edges: [] });
@@ -14,7 +18,7 @@
 	let showCodePreview = $state(false);
 	let recentNodes = $state([]);
 	let pinnedNodeIds = $state([]);
-	let focusMode = $state('related');
+	let focusMode = $state(DEFAULT_APP_CONFIG.defaultFocusMode);
 
 	// Help Info panel states
 	let helpModeActive = $state(false);
@@ -26,10 +30,11 @@
 		}
 	}
 
-	let mode = $state('github'); // 'github' or 'local'
+	let mode = $state(DEFAULT_APP_CONFIG.defaultMode); // 'github' or 'local'
 	let repoUrl = $state('');
 	let githubToken = $state('');
-	let localPath = $state('/Users/jasubal/AllMyCoding/CodeGraphViewer');
+	let localPath = $state(defaultLocalRepository?.path || '');
+	let localRepoPreset = $state(defaultLocalRepository?.id || 'custom');
 	let loading = $state(false);
 	let error = $state('');
 	let warning = $state('');
@@ -56,8 +61,16 @@
 
 	async function handleLoadDemo() {
 		mode = 'local';
-		localPath = '/Users/jasubal/AllMyCoding/CodeGraphViewer';
-		fetchRepoData(true);
+		localPath = defaultLocalRepository?.path || '';
+		localRepoPreset = defaultLocalRepository?.id || 'custom';
+		fetchRepoData(false);
+	}
+
+	function handleLocalRepoPresetChange() {
+		const preset = localRepoPresets.find(item => item.id === localRepoPreset);
+		if (preset?.path) {
+			localPath = preset.path;
+		}
 	}
 
 	async function fetchRepoData(loadDemo = false) {
@@ -67,7 +80,7 @@
 		selectedNode = null;
 		recentNodes = [];
 		pinnedNodeIds = [];
-		focusMode = 'related';
+		focusMode = DEFAULT_APP_CONFIG.defaultFocusMode;
 
 		try {
 			const response = await fetch('/api/analyze-github', {
@@ -156,6 +169,11 @@
 		focusMode = nextMode;
 	}
 
+	function syncLocalRepoPresetFromPath() {
+		const matchingPreset = localRepoPresets.find(item => item.path && item.path === localPath);
+		localRepoPreset = matchingPreset?.id || 'custom';
+	}
+
 	function getGitHubNodeUrl(node) {
 		const repoBase = graphData.repo?.url;
 		const path = normalizeNodePath(node);
@@ -169,6 +187,12 @@
 		const url = getGitHubNodeUrl(node);
 		if (url) window.open(url, '_blank', 'noopener,noreferrer');
 	}
+
+	onMount(() => {
+		if (mode === 'local' && localPath) {
+			fetchRepoData(false);
+		}
+	});
 </script>
 
 <main class="app-container">
@@ -183,6 +207,15 @@
 			<!-- Mode Selector Tabs -->
 			<div class="mode-tabs">
 				<button
+					class="tab-btn {mode === 'local' ? 'active' : ''}"
+					type="button"
+					onclick={() => { mode = 'local'; error = ''; }}
+					onmouseenter={() => handleHelpKey('local_tab')}
+					onmouseleave={() => handleHelpKey(null)}
+				>
+					Local Repo
+				</button>
+				<button
 					class="tab-btn {mode === 'github' ? 'active' : ''}"
 					type="button"
 					onclick={() => { mode = 'github'; error = ''; }}
@@ -190,15 +223,6 @@
 					onmouseleave={() => handleHelpKey(null)}
 				>
 					GitHub Repo
-				</button>
-				<button
-					class="tab-btn {mode === 'local' ? 'active' : ''}"
-					type="button"
-					onclick={() => { mode = 'local'; error = ''; }}
-					onmouseenter={() => handleHelpKey('local_tab')}
-					onmouseleave={() => handleHelpKey(null)}
-				>
-					Local Path
 				</button>
 			</div>
 
@@ -239,23 +263,45 @@
 						/>
 					</div>
 				{:else}
-					<div
-						class="input-group"
-						style="flex: 2;"
-						role="none"
-						onmouseenter={() => handleHelpKey('local_tab')}
-						onmouseleave={() => handleHelpKey(null)}
-					>
-						<label class="input-label" for="local-path">Local Directory Path</label>
-						<input
-							id="local-path"
-							class="input-field"
-							type="text"
-							bind:value={localPath}
-							placeholder="/Users/username/project"
-							required
-							disabled={loading}
-						/>
+					<div class="local-repo-controls">
+						<div
+							class="input-group"
+							role="none"
+							onmouseenter={() => handleHelpKey('local_repo_select')}
+							onmouseleave={() => handleHelpKey(null)}
+						>
+							<label class="input-label" for="local-repo-preset">Local Repo</label>
+							<select
+								id="local-repo-preset"
+								class="input-field local-select"
+								bind:value={localRepoPreset}
+								onchange={handleLocalRepoPresetChange}
+								disabled={loading}
+							>
+								{#each localRepoPresets as preset}
+									<option value={preset.id}>{preset.label}</option>
+								{/each}
+							</select>
+						</div>
+
+						<div
+							class="input-group"
+							role="none"
+							onmouseenter={() => handleHelpKey('local_tab')}
+							onmouseleave={() => handleHelpKey(null)}
+						>
+							<label class="input-label" for="local-path">Local Directory Path</label>
+							<input
+								id="local-path"
+								class="input-field"
+								type="text"
+								bind:value={localPath}
+								oninput={syncLocalRepoPresetFromPath}
+								placeholder="/Users/username/project"
+								required
+								disabled={loading}
+							/>
+						</div>
 					</div>
 				{/if}
 
@@ -274,7 +320,7 @@
 							Analyze
 						{/if}
 					</button>
-					{#if mode === 'github'}
+					{#if mode === 'local'}
 						<button
 							class="submit-btn"
 							type="button"
@@ -284,7 +330,7 @@
 							onmouseenter={() => handleHelpKey('demo_btn')}
 							onmouseleave={() => handleHelpKey(null)}
 						>
-							Demo
+							Example
 						</button>
 					{/if}
 				</div>

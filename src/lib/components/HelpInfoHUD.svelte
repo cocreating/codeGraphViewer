@@ -20,8 +20,8 @@
 		},
 		'local_tab': {
 			title: 'Local Directory Mode',
-			description: 'Allows you to analyze any directory on your local computer. Scans files and builds the dependency graph locally.',
-			tip: 'Tip: Ensure the directory path is absolute (e.g. /Users/name/my-project).'
+			description: 'Analyzes a local directory from this machine. The app starts here with the CodeGraphViewer repository selected as the default example.',
+			tip: 'Tip: Enter an absolute path when switching to a custom local repository.'
 		},
 		'analyze_btn': {
 			title: 'Start Analysis',
@@ -29,9 +29,14 @@
 			tip: 'Tip: Small repos load instantly, large ones may take up to 2-3 seconds.'
 		},
 		'demo_btn': {
-			title: 'Load Codebase Demo',
-			description: 'Loads this application\'s own codebase as a live interactive demo so you can explore all features right away.',
-			tip: 'Tip: Great for exploring search, complexity heatmap, and 3D layout morphs.'
+			title: 'Load Local Example',
+			description: 'Restores the CodeGraphViewer local repository path and analyzes it as the default example project.',
+			tip: 'Tip: Use this after trying custom paths to quickly return to the known local example.'
+		},
+		'local_repo_select': {
+			title: 'Local Repository Selector',
+			description: 'Switches between the built-in CodeGraphViewer local example and a custom local path.',
+			tip: 'Tip: Choosing the example fills the path automatically; choosing custom leaves the path editable.'
 		},
 		'search_bar': {
 			title: 'Repository Search',
@@ -42,6 +47,11 @@
 			title: 'Metric Heatmap Overlay',
 			description: 'Colors and sizes file nodes by File Size, Folder Depth, Coupling, Risk Score, or Composite Complexity.',
 			tip: 'Tip: Risk Score highlights files that are large, highly coupled, widely depended on, or sensitive configuration/API surfaces.'
+		},
+		'color_mode_select': {
+			title: 'Node Color Mode',
+			description: 'Changes the graph color encoding between node type, architecture role, and deterministic risk level.',
+			tip: 'Tip: Use Architecture color to understand project layers, then Risk color to find review targets.'
 		},
 		'layout_select': {
 			title: 'Constellation Layouts',
@@ -65,8 +75,13 @@
 		},
 		'canvas': {
 			title: 'Interactive Galaxy Viewport',
-			description: 'Shows directories and files. In 2D, you can pan and drag nodes. In 3D, dragging rotates the camera around the constellation.',
+			description: 'Shows directories and files. In 2D, you can pan and drag nodes. In 3D, dragging rotates the camera around the constellation. The top-right minimap shows your viewport inside the whole graph.',
 			tip: 'Tip: Selecting a node dims unrelated elements, accelerating packet particles on imports.'
+		},
+		'focus_strip': {
+			title: 'Selected Node Strip',
+			description: 'Summarizes the currently focused node, including path, architecture role, risk level, and active focus mode.',
+			tip: 'Tip: Use it as a persistent orientation cue while the canvas is zoomed into dense areas.'
 		},
 		'legend': {
 			title: 'Node Type Legend',

@@ -89,3 +89,18 @@ This document outlines the architecture, accomplishments, and future milestones 
   - Focus modes isolate related files, dependencies, dependents, same-role nodes, or the full graph.
   - GitHub-backed repositories can open selected files or folders directly in GitHub.
   - Interactive Help now explains breadcrumbs, quick actions, focus modes, recent files, pinned files, and insight quick actions.
+
+### 12. Local-First Repository Loading
+- **Implementation**: Made Local Repo the default mode, auto-loads the CodeGraphViewer local repository on first mount, and added a local repository selector with an example/custom path choice.
+- **Effects**:
+  - Users see a useful local repository map immediately without needing a GitHub URL.
+  - The local example can be restored with one click after trying custom paths.
+  - GitHub repository analysis remains available as the secondary mode.
+
+### 13. Graph Visualization Orientation Upgrades
+- **Implementation**: Added semantic node color modes, a canvas minimap, a selected-node focus strip, and dynamic legends.
+- **Effects**:
+  - Nodes can be colored by type, architecture role, or risk level.
+  - The minimap shows graph position, active nodes, and the current viewport.
+  - The selected-node strip keeps the current file/path, role, risk level, and focus mode visible while zoomed in.
+  - Interactive Help now explains the color mode selector and selected-node strip.

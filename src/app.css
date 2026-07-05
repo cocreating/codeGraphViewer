@@ -132,6 +132,19 @@ body {
 	box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
 }
 
+.local-repo-controls {
+	display: grid;
+	grid-template-columns: minmax(180px, 0.85fr) minmax(260px, 2fr);
+	gap: 0.75rem;
+	flex: 2;
+	width: 100%;
+}
+
+.local-select {
+	font-family: var(--font-sans);
+	cursor: pointer;
+}
+
 .submit-btn {
 	background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-blue) 100%);
 	border: none;
@@ -549,6 +562,12 @@ body {
 	box-shadow: var(--shadow-neon);
 }
 
+@media (max-width: 48em) {
+	.local-repo-controls {
+		grid-template-columns: 1fr;
+	}
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
    Step-based Media Queries
    ───────────────────────────────────────────────────────────────────────────── */
@@ -763,6 +782,7 @@ body {
 }
 
 /* Complexity Heatmap Overlay & Layout Select Dropdowns */
+.color-mode-select,
 .heatmap-select,
 .layout-select {
 	background: rgba(10, 8, 16, 0.8);
@@ -784,6 +804,7 @@ body {
 	background-size: 0.75rem;
 }
 
+.color-mode-select:hover,
 .heatmap-select:hover,
 .layout-select:hover {
 	border-color: var(--accent-purple);
@@ -791,10 +812,83 @@ body {
 	background-color: rgba(15, 11, 25, 0.9);
 }
 
+.color-mode-select:focus,
 .heatmap-select:focus,
 .layout-select:focus {
 	border-color: var(--accent-purple);
 	box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.2);
+}
+
+.graph-focus-strip {
+	position: absolute;
+	top: 0.8rem;
+	left: 0.8rem;
+	max-width: min(440px, calc(100% - 220px));
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.85rem;
+	background: rgba(12, 10, 20, 0.78);
+	border: 1px solid rgba(168, 85, 247, 0.22);
+	backdrop-filter: blur(12px);
+	border-radius: 8px;
+	padding: 0.6rem 0.75rem;
+	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+	z-index: 11;
+	pointer-events: auto;
+}
+
+.graph-focus-strip > div:first-child {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.08rem;
+}
+
+.graph-focus-strip strong,
+.graph-focus-strip small {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.graph-focus-strip strong {
+	font-family: var(--font-mono);
+	font-size: 0.78rem;
+	color: var(--text-primary);
+}
+
+.graph-focus-strip small {
+	font-size: 0.62rem;
+	color: var(--text-muted);
+}
+
+.focus-eyebrow {
+	font-size: 0.56rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	color: var(--accent-purple);
+	font-weight: 800;
+}
+
+.focus-strip-metrics {
+	display: flex;
+	gap: 0.35rem;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	flex-shrink: 0;
+}
+
+.focus-strip-metrics span {
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	background: rgba(255, 255, 255, 0.04);
+	border-radius: 999px;
+	padding: 0.18rem 0.4rem;
+	color: var(--text-secondary);
+	font-size: 0.58rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
 }
 
 /* Repository Overview & Smart Explorer */

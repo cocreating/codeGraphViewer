@@ -31,3 +31,17 @@
   - [x] Mirror dependency/dependent/related/GitHub quick actions inside the Code Insights Panel
   - [x] Expand Interactive Help HUD coverage for navigation controls
   - [x] Verify build compiles successfully (`npm run build`)
+- [x] Center default experience on local repositories:
+  - [x] Make Local Repo mode the default
+  - [x] Auto-load the CodeGraphViewer local repository example on first mount
+  - [x] Add a local repository selector with example/custom path options
+  - [x] Add a one-click Example action to restore the local example
+  - [x] Update Interactive Help HUD copy for the local-first flow
+  - [x] Verify build compiles successfully (`npm run build`)
+- [x] Add graph visualization orientation upgrades:
+  - [x] Add node color modes for type, architecture role, and risk level
+  - [x] Add dynamic legends tied to the active color mode
+  - [x] Draw a canvas minimap with graph bounds, active nodes, and viewport rectangle
+  - [x] Add a selected-node focus strip over the graph
+  - [x] Update Interactive Help HUD copy for the new graph controls
+  - [x] Verify build compiles successfully (`npm run build`)

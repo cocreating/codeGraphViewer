@@ -4,9 +4,12 @@ Interactive GitHub and local repository visualizer for exploring project structu
 
 ## Features
 
-- Analyze public GitHub repositories or local directories.
+- Starts with the local CodeGraphViewer repository as the default example.
+- Analyze local directories or public GitHub repositories.
 - Render a zoomable Canvas/D3 graph of folders, files, imports, packages, classes, exports, and API endpoints.
 - Switch between 2D, 3D tower, sphere, and cylinder graph layouts.
+- Change node colors by type, architecture role, or risk level.
+- Use the minimap and focused-node strip to stay oriented while zooming through dense graphs.
 - Search files, paths, roles, languages, risk levels, imports, exports, and endpoints.
 - Inspect selected-node dependencies, dependents, impact radius, classes, exports, and endpoints.
 - Open source files in a syntax-highlighted code drawer.
@@ -39,6 +42,8 @@ npm run dev
 ```
 
 Open the local URL printed by Vite.
+
+Default app behavior, including the default mode and local repository presets, is configured in `src/lib/config/defaults.js`.
 
 ## Build
 
