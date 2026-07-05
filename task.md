@@ -1,8 +1,0 @@
-- [x] Scaffold SvelteKit project using `sv create`
-- [x] Install D3 dependencies (`d3`)
-- [x] Create Backend API Route (`src/routes/api/analyze-github/+server.js`)
-- [x] Create CSS Design System (`src/app.css` / layout integration)
-- [x] Implement GraphCanvas Component (`src/lib/components/GraphCanvas.svelte`)
-- [x] Implement InsightPanel Component (`src/lib/components/InsightPanel.svelte`)
-- [x] Implement Main Page Layout (`src/routes/+page.svelte` & `src/routes/+layout.svelte`)
-- [x] Verification and build check (`npm run build`)

@@ -35,4 +35,12 @@ This document details the libraries, runtime tools, and custom algorithms that p
   - Computes language breakdown, entry points, main folders, important files, suggested reading path, and health metrics.
   - Annotates graph nodes with architecture roles, import/dependent counts, importance score, deterministic risk score, risk level, and risk reasons.
 - **Secure File Provider**: SvelteKit backend endpoint restricts reads to the active project workspace directory, sanitizing path traversals (`..`) and fetching remote GitHub blobs securely when needed.
+- **Local Directory Browser (`/api/browse-local`)**: A SvelteKit GET endpoint that lists child directories at a given path using `fs.readdirSync`, strips build artifacts (`node_modules`, `.git`, `dist`, `vendor`, `__pycache__`), annotates each entry with `readable` (via `fs.accessSync`) and `hidden` (dotfile) flags, computes a set of root shortcuts (default repo, CWD, home, Downloads, filesystem root), and returns `{ currentPath, parentPath, roots, entries }` as JSON.
 - **PrismJS**: Renders on-demand syntax highlighting inside the glassmorphic slide-out code drawer.
+
+---
+
+## 4. UI Architecture Patterns
+- **Floating Collapsible Inspector**: The repository details panel is absolutely positioned inside a `canvas-stage` container so it overlays the live graph. State is driven by two Svelte 5 runes (`inspectorCollapsed`, `activeInspectorTab`). Selecting a canvas node auto-expands the panel and activates the *Selected* tab via `$effect`.
+- **Tabbed Inspector Layout**: Four named tabs (Overview, Explorer, Selected, Nav) conditionally render their child component only when active, keeping DOM complexity low during tab switches.
+- **In-App Folder Browser Modal**: A glassmorphic `folder-browser` dialog floats over a `folder-browser-backdrop`. State (`localBrowserOpen`, `localBrowserPath`, `localBrowserEntries`, `localBrowserRoots`, `localBrowserParentPath`, `localBrowserLoading`, `localBrowserError`) is managed entirely with Svelte 5 `$state` runes in `+page.svelte`. The backdrop element captures click events and closes the modal when the user clicks outside the dialog box.

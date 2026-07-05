@@ -16,6 +16,8 @@ We have transformed the static D3 canvas into an immersive, premium 3D constella
 13. **Navigation Orientation Layer** with breadcrumbs, recent files, pinned files, graph focus modes, and Open in GitHub actions.
 14. **Local-First Loading** which opens directly on the CodeGraphViewer local repository example and keeps GitHub analysis available as a secondary mode.
 15. **Graph Visualization Orientation Upgrades** with semantic color modes, a minimap, selected-node focus strip, and dynamic legends.
+16. **Floating Collapsible Inspector Panel** replacing the fixed sidebar with a glassmorphic overlay that hovers over the canvas and offers tabbed access to Overview, Explorer, Selected, and Nav sections.
+17. **In-App Local Folder Browser** — a modal directory navigator that lets users browse their local filesystem to select a repository path without typing it manually.
 
 ---
 
@@ -144,6 +146,7 @@ The Navigation Panel keeps orientation and review actions visible while explorin
 The app now starts in Local Repo mode and analyzes the CodeGraphViewer local repository by default:
 - **Default Example**: The local CodeGraphViewer path is prefilled and loaded on first mount.
 - **Local Repo Selector**: A compact selector switches between the CodeGraphViewer example and a custom local path.
+- **Folder Browser**: The Browse button opens an in-app local directory navigator powered by `/api/browse-local`, letting users choose a readable folder and fill the absolute path automatically.
 - **Example Action**: The Example button restores and analyzes the known local repository after experimenting with custom paths.
 - **GitHub Mode**: GitHub URL analysis remains available from the mode tabs when remote repository exploration is needed.
 
@@ -156,3 +159,30 @@ The graph now includes additional visual encodings for architecture and orientat
 - **Dynamic Legend**: The legend changes with the selected color mode so color meaning stays explicit.
 - **Minimap**: A top-right minimap shows the whole graph, active nodes, and the current viewport rectangle.
 - **Selected Node Strip**: A compact overlay keeps the active node name, path, role, risk level, and focus mode visible while zoomed in.
+
+---
+
+## 14. Floating Collapsible Inspector Panel
+
+The static fixed sidebar has been replaced by a **floating glassmorphic inspector** that overlays the bottom-right of the canvas:
+- **Always-On-Top Position**: The panel floats over the graph using absolute positioning inside `canvas-stage`, so the full canvas remains explorable behind it.
+- **Collapsible Header**: A compact header always shows the selected node (or repo/project name) and an Open/Hide toggle. Collapsing the panel reduces it to the header bar only.
+- **Four Tabs**: The inspector body is divided into four independently scrollable sections:
+  - *Overview*: Repository summary, detected stack, health metrics, entry points, risk hotspots.
+  - *Explorer*: Smart File Explorer with role/risk/search filters.
+  - *Selected*: Code Insights Panel for the active graph node (dependencies, exports, endpoints, view code action).
+  - *Nav*: Navigation Panel with breadcrumbs, recent files, pinned files, and graph focus modes.
+- **Auto-Switch on Selection**: Clicking any node in the graph automatically switches to the *Selected* tab and expands the panel if it was collapsed.
+- **Help HUD Integration**: Hovering over the inspector triggers the `floating_inspector` help key, providing contextual tips in the Help Info HUD.
+
+---
+
+## 15. In-App Local Folder Browser
+
+A new modal dialog enables navigating the local filesystem without leaving the app:
+- **Browse Button**: Added next to the local path input field; opens the folder browser modal pre-seeded with the currently entered path.
+- **Root Shortcuts**: The modal header lists quick-jump roots (default repo, home, project directory, Downloads, and filesystem root) resolved by the `/api/browse-local` endpoint.
+- **Directory Navigation**: Clicking any listed folder navigates into it. A Back button climbs to `parentPath`. Hidden (`.`) and locked (permission-denied) folders are listed with visual badges but cannot be entered.
+- **Use This Folder**: The footer action copies the currently browsed path into the local path input and closes the modal.
+- **Backdrop Dismiss**: Clicking outside the modal dialog closes it without changing the path.
+- **`/api/browse-local` Endpoint**: A new SvelteKit GET handler at `src/routes/api/browse-local/+server.js` reads `fs.readdirSync` results, filters out build artifacts (`node_modules`, `.git`, `dist`, etc.), checks read permissions via `fs.accessSync`, and returns `{ currentPath, parentPath, roots, entries }` as JSON.

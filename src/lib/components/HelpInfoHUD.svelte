@@ -38,6 +38,16 @@
 			description: 'Switches between the built-in CodeGraphViewer local example and a custom local path.',
 			tip: 'Tip: Choosing the example fills the path automatically; choosing custom leaves the path editable.'
 		},
+		'local_browser': {
+			title: 'Browse Local Folders',
+			description: 'Opens an in-app folder navigator backed by the local server, so selecting a folder fills the absolute directory path required for analysis.',
+			tip: 'Tip: Use the quick roots to jump between the example repo, current workspace, home folder, and common project locations.'
+		},
+		'floating_inspector': {
+			title: 'Floating Inspector',
+			description: 'Groups repository overview, file explorer, selected-node details, and navigation into tabs over the full-screen graph.',
+			tip: 'Tip: Collapse it when you want maximum canvas space; selecting a node reopens the Selected tab automatically.'
+		},
 		'search_bar': {
 			title: 'Repository Search',
 			description: 'Type names, paths, roles, languages, risk levels, imports, exports, or API endpoints. Matching results appear in a dropdown list.',

@@ -6,6 +6,7 @@ Interactive GitHub and local repository visualizer for exploring project structu
 
 - Starts with the local CodeGraphViewer repository as the default example.
 - Analyze local directories or public GitHub repositories.
+- Browse local folders from the app and fill the absolute repository path without manually typing it.
 - Render a zoomable Canvas/D3 graph of folders, files, imports, packages, classes, exports, and API endpoints.
 - Switch between 2D, 3D tower, sphere, and cylinder graph layouts.
 - Change node colors by type, architecture role, or risk level.
@@ -44,6 +45,7 @@ npm run dev
 Open the local URL printed by Vite.
 
 Default app behavior, including the default mode and local repository presets, is configured in `src/lib/config/defaults.js`.
+The local Browse button uses `/api/browse-local` to list readable directories from the running machine, then passes the selected absolute path to the existing repository analyzer.
 
 ## Build
 

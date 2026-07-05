@@ -19,6 +19,8 @@
 	let recentNodes = $state([]);
 	let pinnedNodeIds = $state([]);
 	let focusMode = $state(DEFAULT_APP_CONFIG.defaultFocusMode);
+	let activeInspectorTab = $state('overview');
+	let inspectorCollapsed = $state(false);
 
 	// Help Info panel states
 	let helpModeActive = $state(false);
@@ -35,6 +37,13 @@
 	let githubToken = $state('');
 	let localPath = $state(defaultLocalRepository?.path || '');
 	let localRepoPreset = $state(defaultLocalRepository?.id || 'custom');
+	let localBrowserOpen = $state(false);
+	let localBrowserPath = $state(defaultLocalRepository?.path || '');
+	let localBrowserEntries = $state([]);
+	let localBrowserRoots = $state([]);
+	let localBrowserParentPath = $state(null);
+	let localBrowserLoading = $state(false);
+	let localBrowserError = $state('');
 	let loading = $state(false);
 	let error = $state('');
 	let warning = $state('');
@@ -71,6 +80,47 @@
 		if (preset?.path) {
 			localPath = preset.path;
 		}
+	}
+
+	async function openLocalBrowser() {
+		localBrowserOpen = true;
+		await browseLocalDirectory(localPath || defaultLocalRepository?.path || '');
+	}
+
+	function closeLocalBrowser() {
+		localBrowserOpen = false;
+		localBrowserError = '';
+	}
+
+	async function browseLocalDirectory(nextPath) {
+		localBrowserLoading = true;
+		localBrowserError = '';
+
+		try {
+			const params = nextPath ? `?path=${encodeURIComponent(nextPath)}` : '';
+			const response = await fetch(`/api/browse-local${params}`);
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || 'Could not read local directory');
+			}
+
+			localBrowserPath = data.currentPath;
+			localBrowserEntries = data.entries || [];
+			localBrowserRoots = data.roots || [];
+			localBrowserParentPath = data.parentPath || null;
+		} catch (err) {
+			localBrowserError = err.message || 'Could not read local directory';
+			localBrowserEntries = [];
+		} finally {
+			localBrowserLoading = false;
+		}
+	}
+
+	function useBrowsedDirectory() {
+		localPath = localBrowserPath;
+		syncLocalRepoPresetFromPath();
+		closeLocalBrowser();
 	}
 
 	async function fetchRepoData(loadDemo = false) {
@@ -149,6 +199,8 @@
 		untrack(() => {
 			if (!node || node.id === 'root') return;
 			recentNodes = [node, ...recentNodes.filter(item => item.id !== node.id)].slice(0, 10);
+			activeInspectorTab = 'selected';
+			inspectorCollapsed = false;
 		});
 	});
 
@@ -188,6 +240,11 @@
 		if (url) window.open(url, '_blank', 'noopener,noreferrer');
 	}
 
+	function selectInspectorTab(tabId) {
+		activeInspectorTab = tabId;
+		inspectorCollapsed = false;
+	}
+
 	onMount(() => {
 		if (mode === 'local' && localPath) {
 			fetchRepoData(false);
@@ -203,7 +260,7 @@
 			<p>Visualizing repo structures, dependencies, & impact cascades</p>
 		</div>
 
-		<form class="form-container" onsubmit={handleSubmit} style="flex-direction: column; gap: 0.75rem; max-width: 65%;">
+		<form class="form-container" onsubmit={handleSubmit}>
 			<!-- Mode Selector Tabs -->
 			<div class="mode-tabs">
 				<button
@@ -226,7 +283,7 @@
 				</button>
 			</div>
 
-			<div style="display: flex; gap: 0.75rem; width: 100%; align-items: flex-end;">
+			<div class="repo-source-row">
 				{#if mode === 'github'}
 					<div
 						class="input-group"
@@ -291,26 +348,38 @@
 							onmouseleave={() => handleHelpKey(null)}
 						>
 							<label class="input-label" for="local-path">Local Directory Path</label>
-							<input
-								id="local-path"
-								class="input-field"
-								type="text"
-								bind:value={localPath}
-								oninput={syncLocalRepoPresetFromPath}
-								placeholder="/Users/username/project"
-								required
-								disabled={loading}
-							/>
+							<div class="local-path-row">
+								<input
+									id="local-path"
+									class="input-field"
+									type="text"
+									bind:value={localPath}
+									oninput={syncLocalRepoPresetFromPath}
+									placeholder="/Users/username/project"
+									required
+									disabled={loading}
+								/>
+								<button
+									class="browse-btn"
+									type="button"
+									onclick={openLocalBrowser}
+									disabled={loading}
+									aria-label="Browse local folders"
+									onmouseenter={() => handleHelpKey('local_browser')}
+									onmouseleave={() => handleHelpKey(null)}
+								>
+									Browse
+								</button>
+							</div>
 						</div>
 					</div>
 				{/if}
 
-				<div style="display: flex; gap: 0.5rem; flex: 1;">
+				<div class="analysis-actions">
 					<button
 						class="submit-btn"
 						type="submit"
 						disabled={loading}
-						style="flex: 1; height: 38px;"
 						onmouseenter={() => handleHelpKey('analyze_btn')}
 						onmouseleave={() => handleHelpKey(null)}
 					>
@@ -322,11 +391,11 @@
 					</button>
 					{#if mode === 'local'}
 						<button
-							class="submit-btn"
-							type="button"
-							onclick={handleLoadDemo}
-							disabled={loading}
-							style="background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-blue) 100%); flex: 1; height: 38px;"
+						class="submit-btn"
+						type="button"
+						onclick={handleLoadDemo}
+						disabled={loading}
+							data-variant="example"
 							onmouseenter={() => handleHelpKey('demo_btn')}
 							onmouseleave={() => handleHelpKey(null)}
 						>
@@ -337,6 +406,92 @@
 			</div>
 		</form>
 	</header>
+
+	{#if localBrowserOpen}
+		<div
+			class="folder-browser-backdrop"
+			role="presentation"
+			onclick={(event) => {
+				if (event.currentTarget === event.target) closeLocalBrowser();
+			}}
+		>
+			<div
+				class="folder-browser"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="folder-browser-title"
+			>
+				<header class="folder-browser-header">
+					<div>
+						<p class="folder-browser-kicker">Local Folder Navigator</p>
+						<h2 id="folder-browser-title">Select repository folder</h2>
+					</div>
+					<button class="folder-browser-close" type="button" onclick={closeLocalBrowser} aria-label="Close folder browser">
+						x
+					</button>
+				</header>
+
+				<div class="folder-browser-current">
+					<span>{localBrowserPath}</span>
+				</div>
+
+				<div class="folder-browser-roots" aria-label="Quick folder roots">
+					{#each localBrowserRoots as root}
+						<button type="button" onclick={() => browseLocalDirectory(root.path)}>
+							{root.name}
+						</button>
+					{/each}
+				</div>
+
+				{#if localBrowserError}
+					<p class="folder-browser-error">{localBrowserError}</p>
+				{/if}
+
+				<div class="folder-browser-list" aria-busy={localBrowserLoading}>
+					{#if localBrowserLoading}
+						<p class="folder-browser-empty">Loading folders...</p>
+					{:else}
+						{#if localBrowserParentPath}
+							<button class="folder-row parent" type="button" onclick={() => browseLocalDirectory(localBrowserParentPath)}>
+								<span class="folder-icon">..</span>
+								<span>Parent directory</span>
+							</button>
+						{/if}
+
+						{#each localBrowserEntries as entry}
+							<button
+								class="folder-row"
+								class:muted={!entry.readable}
+								type="button"
+								disabled={!entry.readable}
+								onclick={() => browseLocalDirectory(entry.path)}
+							>
+								<span class="folder-icon">[]</span>
+								<span>{entry.name}</span>
+								{#if entry.hidden}
+									<span class="folder-badge">hidden</span>
+								{/if}
+								{#if !entry.readable}
+									<span class="folder-badge">locked</span>
+								{/if}
+							</button>
+						{/each}
+
+						{#if !localBrowserParentPath && localBrowserEntries.length === 0}
+							<p class="folder-browser-empty">No readable folders found here.</p>
+						{/if}
+					{/if}
+				</div>
+
+				<footer class="folder-browser-actions">
+					<button class="secondary-btn" type="button" onclick={closeLocalBrowser}>Cancel</button>
+					<button class="submit-btn" type="button" onclick={useBrowsedDirectory} disabled={!localBrowserPath}>
+						Use This Folder
+					</button>
+				</footer>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Warning Alert Banner -->
 	{#if warning}
@@ -350,7 +505,7 @@
 	<!-- Main Workspace Split -->
 	<div class="workspace">
 		<!-- Simulation Visualization -->
-		<div style="flex: 1; position: relative; display: flex; flex-direction: column; min-height: 0;">
+		<div class="canvas-stage">
 			{#if loading}
 				<div class="loader-overlay">
 					<div class="spinner"></div>
@@ -373,85 +528,140 @@
 				active={helpModeActive}
 				activeKey={activeHelpKey}
 			/>
+
+			<aside
+				class="floating-inspector {inspectorCollapsed ? 'collapsed' : ''}"
+				onmouseenter={() => handleHelpKey('floating_inspector')}
+				onmouseleave={() => handleHelpKey(null)}
+			>
+				<header class="inspector-header">
+					<div>
+						<p class="inspector-kicker">Repository Inspector</p>
+						<h2>{selectedNode?.name || graphData.repo?.name || graphData.summary?.projectType || 'Workspace'}</h2>
+					</div>
+					<button
+						class="inspector-toggle"
+						type="button"
+						onclick={() => inspectorCollapsed = !inspectorCollapsed}
+						aria-label={inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector'}
+					>
+						{inspectorCollapsed ? 'Open' : 'Hide'}
+					</button>
+				</header>
+
+				{#if !inspectorCollapsed}
+					<nav class="inspector-tabs" aria-label="Inspector sections">
+						<button
+							type="button"
+							class:active={activeInspectorTab === 'overview'}
+							onclick={() => selectInspectorTab('overview')}
+						>
+							Overview
+						</button>
+						<button
+							type="button"
+							class:active={activeInspectorTab === 'explorer'}
+							onclick={() => selectInspectorTab('explorer')}
+						>
+							Explorer
+						</button>
+						<button
+							type="button"
+							class:active={activeInspectorTab === 'selected'}
+							onclick={() => selectInspectorTab('selected')}
+						>
+							Selected
+						</button>
+						<button
+							type="button"
+							class:active={activeInspectorTab === 'navigation'}
+							onclick={() => selectInspectorTab('navigation')}
+						>
+							Nav
+						</button>
+					</nav>
+
+					<div class="inspector-body">
+						{#if error}
+							<div class="card analysis-error-card">
+								<div class="card-title">Analysis Error</div>
+								<p>{error}</p>
+							</div>
+						{/if}
+
+						{#if activeInspectorTab === 'overview'}
+							{#if graphData.summary}
+								<RepositoryOverview
+									repo={graphData.repo}
+									summary={graphData.summary}
+									detectedTech={graphData.detectedTech}
+									languageBreakdown={graphData.languageBreakdown}
+									entryPoints={graphData.entryPoints}
+									mainFolders={graphData.mainFolders}
+									health={graphData.health}
+									highRiskFiles={graphData.highRiskFiles}
+									readingPath={graphData.readingPath}
+									onSelectPath={handleSelectPath}
+									onHoverHelp={handleHelpKey}
+								/>
+							{:else if analyzedDetails}
+								<div class="card">
+									<div class="card-title">Repository Landscape Statistics</div>
+									<div class="stats-grid">
+										<div class="stat-card">
+											<div class="stat-value">{analyzedDetails.fileCount}</div>
+											<div class="stat-label">Source Files</div>
+										</div>
+										<div class="stat-card">
+											<div class="stat-value">{analyzedDetails.dirCount}</div>
+											<div class="stat-label">Directories</div>
+										</div>
+										<div class="stat-card">
+											<div class="stat-value">{analyzedDetails.totalEdges}</div>
+											<div class="stat-label">Graph Links</div>
+										</div>
+									</div>
+								</div>
+							{:else}
+								<div class="metadata-empty inspector-empty">Analyze a repository to populate the overview.</div>
+							{/if}
+						{:else if activeInspectorTab === 'explorer'}
+							<SmartExplorer
+								{graphData}
+								{selectedNode}
+								onSelectNode={handleSelectNode}
+								onHoverHelp={handleHelpKey}
+							/>
+						{:else if activeInspectorTab === 'selected'}
+							<InsightPanel
+								{graphData}
+								{selectedNode}
+								{focusMode}
+								onViewCode={() => showCodePreview = true}
+								onFocusModeChange={handleFocusModeChange}
+								onOpenGitHub={openInGitHub}
+								canOpenInGitHub={canOpenInGitHub}
+								onHoverHelp={handleHelpKey}
+							/>
+						{:else if activeInspectorTab === 'navigation'}
+							<NavigationPanel
+								{selectedNode}
+								{recentNodes}
+								{pinnedNodes}
+								{focusMode}
+								{canOpenInGitHub}
+								onSelectPath={handleSelectPath}
+								onTogglePin={togglePinnedNode}
+								onClearRecent={clearRecentNodes}
+								onFocusModeChange={handleFocusModeChange}
+								onOpenGitHub={openInGitHub}
+								onHoverHelp={handleHelpKey}
+							/>
+						{/if}
+					</div>
+				{/if}
+			</aside>
 		</div>
-
-		<!-- Details/Sidebar Panel -->
-		<aside class="sidebar">
-			{#if error}
-				<div class="card" style="border-color: rgba(239, 68, 68, 0.35); background: rgba(127, 29, 29, 0.2);">
-					<div class="card-title" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.15);">
-						Analysis Error
-					</div>
-					<p style="font-size: 0.85rem; color: #fca5a5;">{error}</p>
-				</div>
-			{/if}
-
-			{#if graphData.summary}
-				<RepositoryOverview
-					repo={graphData.repo}
-					summary={graphData.summary}
-					detectedTech={graphData.detectedTech}
-					languageBreakdown={graphData.languageBreakdown}
-					entryPoints={graphData.entryPoints}
-					mainFolders={graphData.mainFolders}
-					health={graphData.health}
-					highRiskFiles={graphData.highRiskFiles}
-					readingPath={graphData.readingPath}
-					onSelectPath={handleSelectPath}
-					onHoverHelp={handleHelpKey}
-				/>
-
-				<SmartExplorer
-					{graphData}
-					{selectedNode}
-					onSelectNode={handleSelectNode}
-					onHoverHelp={handleHelpKey}
-				/>
-			{:else if analyzedDetails}
-				<div class="card">
-					<div class="card-title">Repository Landscape Statistics</div>
-					<div class="stats-grid">
-						<div class="stat-card">
-							<div class="stat-value">{analyzedDetails.fileCount}</div>
-							<div class="stat-label">Source Files</div>
-						</div>
-						<div class="stat-card">
-							<div class="stat-value">{analyzedDetails.dirCount}</div>
-							<div class="stat-label">Directories</div>
-						</div>
-						<div class="stat-card">
-							<div class="stat-value">{analyzedDetails.totalEdges}</div>
-							<div class="stat-label">Graph Links</div>
-						</div>
-					</div>
-				</div>
-			{/if}
-
-			<NavigationPanel
-				{selectedNode}
-				{recentNodes}
-				{pinnedNodes}
-				{focusMode}
-				{canOpenInGitHub}
-				onSelectPath={handleSelectPath}
-				onTogglePin={togglePinnedNode}
-				onClearRecent={clearRecentNodes}
-				onFocusModeChange={handleFocusModeChange}
-				onOpenGitHub={openInGitHub}
-				onHoverHelp={handleHelpKey}
-			/>
-
-			<InsightPanel
-				{graphData}
-				{selectedNode}
-				{focusMode}
-				onViewCode={() => showCodePreview = true}
-				onFocusModeChange={handleFocusModeChange}
-				onOpenGitHub={openInGitHub}
-				canOpenInGitHub={canOpenInGitHub}
-				onHoverHelp={handleHelpKey}
-			/>
-		</aside>
 	</div>
 
 	<CodePreviewer

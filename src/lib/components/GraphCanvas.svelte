@@ -804,8 +804,8 @@
 
 			const mapW = 170;
 			const mapH = 116;
-			const mapX = w - mapW - 18;
-			const mapY = 18;
+			const mapX = 18;
+			const mapY = Math.max(18, h / 2 - mapH - 24);
 			const pad = 12;
 
 			const minX = d3.min(localNodes, node => node.x ?? 0) ?? 0;
@@ -868,7 +868,12 @@
 			ctx.strokeStyle = 'rgba(255, 255, 255, 0.62)';
 			ctx.lineWidth = 1.2;
 			ctx.setLineDash([3, 3]);
+			ctx.save();
+			ctx.beginPath();
+			ctx.roundRect(mapX + 1, mapY + 1, mapW - 2, mapH - 2, 8);
+			ctx.clip();
 			ctx.strokeRect(vx, vy, vw, vh);
+			ctx.restore();
 			ctx.setLineDash([]);
 			ctx.restore();
 		}
