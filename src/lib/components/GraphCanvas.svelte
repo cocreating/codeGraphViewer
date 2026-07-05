@@ -1871,6 +1871,23 @@
 		</div>
 
 		<div class="zoom-controls">
+			<select
+				class="layout-select"
+				bind:value={layoutMode}
+				title="Change Visualization Layout"
+				onmouseenter={() => onHelpKey?.('layout_select_' + layoutMode)}
+				onmouseleave={() => onHelpKey?.(null)}
+			>
+				<option value="force">Layout: Force 2D</option>
+				<option value="sticky_force">Layout: Sticky Force 2D</option>
+				<option value="radial">Layout: Radial Tree</option>
+				<option value="dag">Layout: Dependency Layers</option>
+				<option value="clusters">Layout: Role Clusters</option>
+				<option value="scatter">Layout: Risk ✕ Importance</option>
+				<option value="concentric">Layout: Concentric Rings</option>
+				<option value="grid">Layout: Structured Grid</option>
+			</select>
+
 			<!-- Semantic Color Mode selector -->
 			<select
 				class="color-mode-select"
@@ -1900,23 +1917,6 @@
 				<option value="composite">Heatmap: Complexity Index</option>
 			</select>
 
-			<select
-				class="layout-select"
-				bind:value={layoutMode}
-				title="Change Visualization Layout"
-				onmouseenter={() => onHelpKey?.('layout_select_' + layoutMode)}
-				onmouseleave={() => onHelpKey?.(null)}
-			>
-				<option value="force">Layout: Force 2D</option>
-				<option value="sticky_force">Layout: Sticky Force 2D</option>
-				<option value="radial">Layout: Radial Tree</option>
-				<option value="dag">Layout: Dependency Layers</option>
-				<option value="clusters">Layout: Role Clusters</option>
-				<option value="scatter">Layout: Risk ✕ Importance</option>
-				<option value="concentric">Layout: Concentric Rings</option>
-				<option value="grid">Layout: Structured Grid</option>
-			</select>
-
 			{#if hasPinnedNodes}
 				<button
 					class="zoom-btn active-help"
@@ -1927,6 +1927,10 @@
 					Release Pinned ({localNodes.filter(n => n.fx !== null && n.fx !== undefined).length})
 				</button>
 			{/if}
+
+			<button class="zoom-btn" onclick={() => handleZoom('in')} title="Zoom In" onmouseenter={() => onHelpKey?.('zoom_in')} onmouseleave={() => onHelpKey?.(null)}>+</button>
+			<button class="zoom-btn" onclick={() => handleZoom('out')} title="Zoom Out" onmouseenter={() => onHelpKey?.('zoom_out')} onmouseleave={() => onHelpKey?.(null)}>-</button>
+			<button class="zoom-btn" onclick={resetZoom} title="Fit Content" onmouseenter={() => onHelpKey?.('fit_content')} onmouseleave={() => onHelpKey?.(null)}>⛶</button>
 
 			<!-- Interactive Help Toggle -->
 			<button
@@ -1939,10 +1943,6 @@
 			>
 				{helpModeActive ? 'Help: On' : 'Help: Off'}
 			</button>
-
-			<button class="zoom-btn" onclick={() => handleZoom('in')} title="Zoom In" onmouseenter={() => onHelpKey?.('zoom_in')} onmouseleave={() => onHelpKey?.(null)}>+</button>
-			<button class="zoom-btn" onclick={() => handleZoom('out')} title="Zoom Out" onmouseenter={() => onHelpKey?.('zoom_out')} onmouseleave={() => onHelpKey?.(null)}>-</button>
-			<button class="zoom-btn" onclick={resetZoom} title="Fit Content" onmouseenter={() => onHelpKey?.('fit_content')} onmouseleave={() => onHelpKey?.(null)}>⛶</button>
 		</div>
 	</div>
 
