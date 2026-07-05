@@ -1,0 +1,7 @@
+- [x] Implement Semantic Search in GraphCanvas.svelte and app.css:
+  - [x] Add search styling in app.css
+  - [x] Add searchQuery, searchFocused, and Svelte 5 $derived searchMatches logic in GraphCanvas.svelte
+  - [x] Implement search select handler (binding selection & centering camera)
+  - [x] Add search HTML markup and dropdown inside visualizer-header
+- [x] Verify build compiles successfully (`npm run build`)
+- [x] Validate changes in browser
