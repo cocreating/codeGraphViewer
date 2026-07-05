@@ -1415,32 +1415,17 @@
 		});
 	});
 
-	// Dynamically update D3 Zoom Filter when viewMode changes
+	// Dynamically update D3 Zoom Filter when viewMode or hoveredNode changes
 	$effect(() => {
 		const currentMode = viewMode;
+		const isHoveringNode = !!hoveredNode;
 		if (zoomBehavior && canvas) {
 			zoomBehavior.filter((event) => {
 				// Don't respond to right-clicks or auxiliary clicks
 				if (event.button) return false;
 
-				// Check if mouse is hovering over a node
-				const [mx, my] = d3.pointer(event, canvas);
-				let nodeClose = false;
-				localNodes.forEach(node => {
-					if (node.px === undefined) return;
-					const sx = node.px * transform.k + transform.x;
-					const sy = node.py * transform.k + transform.y;
-
-					const dx = sx - mx;
-					const dy = sy - my;
-					const dist = Math.sqrt(dx*dx + dy*dy);
-					if (dist < 22) {
-						nodeClose = true;
-					}
-				});
-
-				// Block zoom/pan interaction if we are dragging a node
-				if (nodeClose) return false;
+				// Block zoom/pan interaction if we are hovering over a node (dragging/selecting)
+				if (isHoveringNode) return false;
 
 				// In 3D Orbit mode, block background panning dragging, but allow wheel scaling
 				if (currentMode === '3d' && event.type === 'mousedown') {
