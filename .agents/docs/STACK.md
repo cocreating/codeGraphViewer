@@ -67,8 +67,13 @@ The simulation is tuned for maximum readability:
 Three edge types are styled distinctly but kept visually quiet at rest:
 - *Hierarchy*: solid, 0.6 px, 2.5% white opacity.
 - *Contains*: dashed [2, 4], 0.7 px, 4.5% white opacity.
-- *Import*: dashed [4, 5], 0.9 px, 13% purple opacity at rest; 1.4 px, 45% opacity when the edge is highlighted.
+- *Import*: dashed [4, 5], 0.9 px, 13% purple opacity at rest. Active imports morph into glowing neon purple-to-cyan gradient lines with a soft shadow glow.
 Small directional arrowheads (4 px) indicate flow direction on import and contains edges.
+
+### Neon Laser-Beam Connection Pipelines
+- **Neon Gradient Trails**: Active import connections transition from purple (`rgba(168, 85, 247)`) $\rightarrow$ pink (`rgba(236, 72, 153)`) $\rightarrow$ cyan (`rgba(34, 211, 238)`).
+- **Active Shadow Glow**: Selected edges are rendered with `shadowBlur: 4` in purple, while inactive edges keep shadows disabled for 60FPS drawing.
+- **Selection Cascade Surge**: Selecting a node triggers a 1000ms selection pulse. A white laser core (`#ffffff` with `#22d3ee` cyan glow) and outer transparent cyan halo shoot along active connections.
 
 ### Label Rendering
 - **Visibility threshold**: root and directory labels are always shown; file labels appear at zoom `k > 0.9`; all other types at `k > 1.6`.
