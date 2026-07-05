@@ -672,6 +672,7 @@
 	// Animate layout transitions on layoutMode change
 	$effect(() => {
 		const mode = layoutMode;
+		const data = graphData; // react to new repo data loads
 		if (localNodes.length === 0) return;
 
 		untrack(() => {
@@ -783,15 +784,23 @@
 		});
 	});
 
-	// GSAP Camera Sync on Selection
+	// GSAP Camera Sync on Selection & Layout Changes
 	$effect(() => {
 		const node = selectedNode;
 		const mode = viewMode; // watch for 3D/2D toggle to reset zoom correctly
+		const layout = layoutMode; // watch for layout changes to keep focused node centered
 		untrack(() => {
 			if (node) {
 				const local = localNodes.find(n => n.id === node.id);
-				if (local && local.px !== undefined && local.py !== undefined) {
-					glideCameraTo(local.x, local.y, 1.55);
+				if (local) {
+					const delay = (layout === '3d_sphere' || layout === '3d_cylinder') ? 0.35 : 0;
+					setTimeout(() => {
+						const currentLocal = localNodes.find(n => n.id === node.id);
+						if (!currentLocal) return;
+						const tx = viewMode === '3d' ? (currentLocal.px !== undefined ? currentLocal.px : currentLocal.x) : currentLocal.x;
+						const ty = viewMode === '3d' ? (currentLocal.py !== undefined ? currentLocal.py : currentLocal.y) : currentLocal.y;
+						glideCameraTo(tx, ty, 1.55);
+					}, delay * 1000);
 				}
 			} else if (localNodes.length > 0) {
 				resetZoom();

@@ -8,7 +8,7 @@
 	--text-primary: #f3f1f7;
 	--text-secondary: #a39cb4;
 	--text-muted: #6b637e;
-	
+
 	/* Accent Colors */
 	--accent-purple: #a855f7;
 	--accent-blue: #3b82f6;
@@ -17,14 +17,14 @@
 	--accent-orange: #f97316;
 	--accent-pink: #ec4899;
 	--accent-green: #22c55e;
-	
+
 	--shadow-neon: 0 0 15px rgba(168, 85, 247, 0.25);
 	--shadow-neon-strong: 0 0 25px rgba(168, 85, 247, 0.45);
 	--shadow-teal: 0 0 15px rgba(20, 184, 166, 0.25);
-	
+
 	--font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 	--font-mono: 'JetBrains Mono', monospace;
-	
+
 	--transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -566,22 +566,22 @@ body {
 		flex-direction: row;
 		justify-content: space-between;
 	}
-	
+
 	.logo-section {
 		text-align: left;
 	}
-	
+
 	.form-container {
 		flex-direction: row;
 		align-items: flex-end;
 		max-width: 65%;
 	}
-	
+
 	.submit-btn {
 		height: 38px;
 		padding: 0 1.5rem;
 	}
-	
+
 	.legend {
 		grid-template-columns: repeat(4, 1fr);
 	}
@@ -593,11 +593,11 @@ body {
 		grid-template-columns: repeat(3, 1fr);
 		gap: 0.75rem;
 	}
-	
+
 	.stat-card {
 		padding: 0.75rem;
 	}
-	
+
 	.stat-value {
 		font-size: 1.3rem;
 	}
@@ -617,19 +617,19 @@ body {
 		height: 100vh;
 		overflow: hidden;
 	}
-	
+
 	.workspace {
 		flex-direction: row;
 		flex: 1;
 		min-height: 0;
 	}
-	
+
 	.visualizer-card {
 		flex: 1;
 		height: 100%;
 		min-height: 0;
 	}
-	
+
 	.sidebar {
 		width: 380px;
 		flex-shrink: 0;
@@ -637,7 +637,7 @@ body {
 		overflow-y: auto;
 		gap: 1rem;
 	}
-	
+
 	.card {
 		flex-shrink: 0;
 	}
@@ -956,21 +956,21 @@ body {
    ───────────────────────────────────────────────────────────────────────────── */
 
 .help-hud-card {
-	position: absolute;
-	bottom: 50px;
-	left: 20px;
-	width: 240px;
-	background: rgba(13, 10, 22, 0.75);
-	border: 1px solid rgba(168, 85, 247, 0.25);
-	border-radius: 8px;
-	backdrop-filter: blur(12px);
-	z-index: 99;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-	padding: 0.75rem;
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	transition: border-color var(--transition-smooth);
+    position: absolute;
+    bottom: 10px;
+    width: 240px;
+    background: rgba(13, 10, 22, 0.75);
+    border: 1px solid rgba(168, 85, 247, 0.25);
+    border-radius: 8px;
+    backdrop-filter: blur(12px);
+    z-index: 99;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: border-color var(--transition-smooth);
+    right: 10px;
 }
 
 .help-hud-card:hover {
