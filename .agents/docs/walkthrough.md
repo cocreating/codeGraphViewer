@@ -240,3 +240,25 @@ The animated dots travelling along graph edges — called **flow particles** (or
   - `importOpacity` / `otherOpacity` — fill transparency (0–1)
   - `importSpeed` / `otherSpeed` — travel speed in cycles/second
   - `activeSpeedMultiplier` — speed boost when the edge is selected/highlighted
+
+---
+
+## 18. Advanced Semantic & Manual Layouts
+
+We have expanded the visualization options with three additional layouts and sticky drag coordinate anchoring:
+
+### Layout: Sticky Force 2D (`sticky_force`)
+- Runs the active D3 physical force simulation but **freezes/locks** dragged nodes permanently in place when released.
+- Pinned nodes stay fixed at their custom manual positions (`fx` and `fy` variables remain anchored) while other unpinned nodes continue to react to layout link and collision forces around them.
+- A red **"Release Pinned (N)"** button appears in the toolbar when any nodes are frozen, allowing unpinning all nodes at once to return the graph to fluid simulation forces.
+
+### Layout: Concentric Rings (`concentric`)
+- Arranges modules in symmetric, structured orbital concentric rings based on node types.
+- Center orbit (Radius 0) hosts the project root. Inner orbit hosts external packages. Mid orbit hosts directory containers. Outer orbit fanned out with individual files.
+- Provides a clean bird's-eye schematic map of project depth and dependency tiers.
+
+### Layout: Structured Grid (`grid`)
+- Groups files neatly in rectangular cells matching their parent directories.
+- Draws custom grid boundaries around each folder category with folder name labels in world space.
+- Excellent for reading large codebases like standard maps or books, eliminating overlap entirely.
+

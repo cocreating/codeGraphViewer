@@ -60,8 +60,10 @@
 	// Heatmap states
 	let heatmapMetric = $state('none');
 	let colorMode = $state('type'); // 'type', 'role', 'risk'
-	let layoutMode = $state('force'); // 'force', 'radial', 'dag', 'clusters', 'scatter'
+	let layoutMode = $state('force'); // 'force', 'radial', 'dag', 'clusters', 'scatter', 'sticky_force', 'concentric', 'grid'
 	let showClusterHulls = $state(true); // toggleable cluster bubble overlay for 'force' and 'clusters' layouts
+	let gridCells = $state([]);
+	let hasPinnedNodes = $state(false);
 
 	const roleColors = {
 		root: '#ffffff',
@@ -255,6 +257,122 @@
 			gsap.killTweensOf(node, ['x', 'y']);
 			gsap.to(node, { x: padX + (i % 8) * 22, y: h - 28 - Math.floor(i / 8) * 22, duration: 1.0, ease: 'power2.inOut' });
 		});
+	};
+
+	// ─── Layout: Concentric Rings ────────────────────────────────────────────────
+	// Arranges nodes in concentric rings by node type: root -> packages -> directories -> files.
+	const applyConcentricLayout = (w, h) => {
+		const cx = w / 2, cy = h / 2;
+		const groups = {
+			root: [],
+			pkg: [],
+			dir: [],
+			file: []
+		};
+		localNodes.forEach(n => {
+			if (n.type === 'root') groups.root.push(n);
+			else if (n.type === 'package') groups.pkg.push(n);
+			else if (n.type === 'directory') groups.dir.push(n);
+			else groups.file.push(n);
+		});
+
+		const rings = [
+			{ nodes: groups.root, radius: 0 },
+			{ nodes: groups.pkg, radius: Math.min(w, h) * 0.16 },
+			{ nodes: groups.dir, radius: Math.min(w, h) * 0.28 },
+			{ nodes: groups.file, radius: Math.min(w, h) * 0.43 }
+		].filter(r => r.nodes.length > 0);
+
+		rings.forEach(ring => {
+			const len = ring.nodes.length;
+			ring.nodes.forEach((node, i) => {
+				const angle = (i / len) * 2 * Math.PI - Math.PI / 2;
+				gsap.killTweensOf(node, ['x', 'y']);
+				gsap.to(node, {
+					x: cx + ring.radius * Math.cos(angle),
+					y: cy + ring.radius * Math.sin(angle),
+					duration: 1.25,
+					ease: 'power2.inOut'
+				});
+			});
+		});
+	};
+
+	// ─── Layout: Structured Grid ─────────────────────────────────────────────────
+	// Files grouped by parent directory cell, forming a clear folder-by-folder layout.
+	const applyGridLayout = (w, h) => {
+		const padX = 80, padY = 80;
+		const gridW = w - padX * 2;
+		const gridH = h - padY * 2;
+		
+		const getDirOfNode = (node) => {
+			if (node.type === 'root') return 'root';
+			if (node.type === 'package') return 'package';
+			if (node.type === 'directory') return node.id;
+			const parts = node.id.split('/');
+			if (parts.length <= 1) return 'root';
+			return parts.slice(0, -1).join('/');
+		};
+
+		const dirGroups = new Map();
+		localNodes.forEach(n => {
+			const dir = getDirOfNode(n);
+			if (!dirGroups.has(dir)) dirGroups.set(dir, []);
+			dirGroups.get(dir).push(n);
+		});
+
+		const sortedDirs = [...dirGroups.keys()].sort((a, b) => a.localeCompare(b));
+		const numDirs = sortedDirs.length;
+		const cols = Math.ceil(Math.sqrt(numDirs));
+		const rows = Math.ceil(numDirs / cols);
+		
+		const cellW = gridW / Math.max(1, cols);
+		const cellH = gridH / Math.max(1, rows);
+
+		const computedCells = [];
+		sortedDirs.forEach((dir, dirIndex) => {
+			const nodes = dirGroups.get(dir);
+			nodes.sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
+			
+			const col = dirIndex % cols;
+			const row = Math.floor(dirIndex / cols);
+			const startX = padX + col * cellW;
+			const startY = padY + row * cellH;
+
+			computedCells.push({ dir, x: startX, y: startY, w: cellW, h: cellH });
+
+			const numNodes = nodes.length;
+			const cellCols = Math.ceil(Math.sqrt(numNodes));
+			const cellRows = Math.ceil(numNodes / cellCols);
+			const innerPad = 15;
+			const subW = (cellW - innerPad * 2) / Math.max(1, cellCols);
+			const subH = (cellH - innerPad * 2) / Math.max(1, cellRows);
+
+			nodes.forEach((node, nodeIndex) => {
+				const sc = nodeIndex % cellCols;
+				const sr = Math.floor(nodeIndex / cellCols);
+				gsap.killTweensOf(node, ['x', 'y']);
+				gsap.to(node, {
+					x: startX + innerPad + sc * subW + subW / 2,
+					y: startY + innerPad + sr * subH + subH / 2,
+					duration: 1.25,
+					ease: 'power2.inOut'
+				});
+			});
+		});
+		gridCells = computedCells;
+	};
+
+	// ─── Unpin/Release Helper ───────────────────────────────────────────────────
+	const unpinAllNodes = () => {
+		localNodes.forEach(node => {
+			node.fx = null;
+			node.fy = null;
+		});
+		hasPinnedNodes = false;
+		if (simulation && (layoutMode === 'force' || layoutMode === 'sticky_force' || layoutMode === 'clusters')) {
+			simulation.alpha(0.3).restart();
+		}
 	};
 
 	// Helper score formula
@@ -538,6 +656,23 @@
 				ctx.fillStyle = hexToRgba(color, 0.65);
 				ctx.font = `bold ${Math.max(9, 10 / activeTransform.k)}px "Outfit", sans-serif`;
 				ctx.fillText(role.toUpperCase(), cxH - 12, cyH - 16);
+			});
+			ctx.restore();
+		}
+
+		// ── Bounding boxes for Grid Layout ───────────────────────────────────────
+		if (layoutMode === 'grid' && gridCells.length > 0) {
+			ctx.save();
+			ctx.translate(activeTransform.x, activeTransform.y);
+			ctx.scale(activeTransform.k, activeTransform.k);
+			gridCells.forEach(cell => {
+				ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+				ctx.lineWidth = 1.0 / activeTransform.k;
+				ctx.strokeRect(cell.x, cell.y, cell.w, cell.h);
+				
+				ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+				ctx.font = `bold ${Math.max(8, 9 / activeTransform.k)}px "Outfit", sans-serif`;
+				ctx.fillText(cell.dir, cell.x + 8, cell.y + 16);
 			});
 			ctx.restore();
 		}
@@ -1009,14 +1144,32 @@
 			ctx.fillStyle = 'rgba(255,255,255,0.18)';
 			ctx.fillText('DEPENDENCY LAYERS — import edges flow left → right', 14, 20);
 			ctx.restore();
-		} else if (layoutMode === 'radial') {
+		} else if (layoutMode === 'concentric') {
 			ctx.save();
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
 			const dpr = window.devicePixelRatio || 1;
 			ctx.scale(dpr, dpr);
 			ctx.font = 'bold 9px "Outfit", sans-serif';
-			ctx.fillStyle = 'rgba(255,255,255,0.18)';
-			ctx.fillText('RADIAL FILE TREE — root at centre, files at outer ring', 14, 20);
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+			ctx.fillText('CONCENTRIC RINGS — packages, directories, and files in layered orbits', 14, 20);
+			ctx.restore();
+		} else if (layoutMode === 'grid') {
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+			ctx.font = 'bold 9px "Outfit", sans-serif';
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+			ctx.fillText('STRUCTURED GRID — files grouped by parent directory', 14, 20);
+			ctx.restore();
+		} else if (layoutMode === 'sticky_force') {
+			ctx.save();
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+			const dpr = window.devicePixelRatio || 1;
+			ctx.scale(dpr, dpr);
+			ctx.font = 'bold 9px "Outfit", sans-serif';
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+			ctx.fillText('STICKY FORCE 2D — drag nodes to pin/freeze their positions', 14, 20);
 			ctx.restore();
 		}
 
@@ -1130,9 +1283,19 @@
 			const w = width > 0 ? width : 800;
 			const h = height > 0 ? height : 600;
 
-			if (mode === 'force') {
+			if (mode === 'force' || mode === 'sticky_force') {
 				clusterCenters = {};
-				// Restore full simulation forces if we were in cluster mode
+				
+				// Clear anchors when entering fluid force layout
+				if (mode === 'force') {
+					localNodes.forEach(node => {
+						node.fx = null;
+						node.fy = null;
+					});
+					hasPinnedNodes = false;
+				}
+
+				// Restore full simulation forces
 				if (simulation) {
 					const nodeCount = localNodes.length;
 					simulation
@@ -1156,20 +1319,34 @@
 						.force('collision', d3.forceCollide().radius(d => getNodeRadius(d.type) + 10))
 						.alpha(0.4).restart();
 				}
-			} else if (mode === 'radial') {
-				if (simulation) simulation.stop();
-				clusterCenters = {};
-				applyRadialLayout(w, h);
-			} else if (mode === 'dag') {
-				if (simulation) simulation.stop();
-				clusterCenters = {};
-				applyDagLayout(w, h);
-			} else if (mode === 'clusters') {
-				applyClusterLayout(w, h);
-			} else if (mode === 'scatter') {
-				if (simulation) simulation.stop();
-				clusterCenters = {};
-				applyScatterLayout(w, h);
+			} else {
+				// Clear fx/fy anchors for all static/non-force layouts
+				localNodes.forEach(n => { n.fx = null; n.fy = null; });
+				hasPinnedNodes = false;
+
+				if (mode === 'radial') {
+					if (simulation) simulation.stop();
+					clusterCenters = {};
+					applyRadialLayout(w, h);
+				} else if (mode === 'dag') {
+					if (simulation) simulation.stop();
+					clusterCenters = {};
+					applyDagLayout(w, h);
+				} else if (mode === 'clusters') {
+					applyClusterLayout(w, h);
+				} else if (mode === 'scatter') {
+					if (simulation) simulation.stop();
+					clusterCenters = {};
+					applyScatterLayout(w, h);
+				} else if (mode === 'concentric') {
+					if (simulation) simulation.stop();
+					clusterCenters = {};
+					applyConcentricLayout(w, h);
+				} else if (mode === 'grid') {
+					if (simulation) simulation.stop();
+					clusterCenters = {};
+					applyGridLayout(w, h);
+				}
 			}
 		});
 	});
@@ -1452,8 +1629,8 @@
 			draggedNode = closest;
 			lastDragPx = px;
 			lastDragPy = py;
-			// Only pin to simulation when in force/clusters mode (sim is running)
-			if (layoutMode === 'force' || layoutMode === 'clusters') {
+			// Only pin to simulation when in force/sticky_force/clusters mode (sim is running)
+			if (layoutMode === 'force' || layoutMode === 'sticky_force' || layoutMode === 'clusters') {
 				draggedNode.fx = draggedNode.x;
 				draggedNode.fy = draggedNode.y;
 				if (simulation) simulation.alphaTarget(0.2).restart();
@@ -1487,12 +1664,12 @@
 		if (isDraggingNode && draggedNode) {
 			const dpx = px - lastDragPx;
 			const dpy = py - lastDragPy;
-			// Standard 2D drag (no 3D orbit logic needed)
-			if (layoutMode === 'force' || layoutMode === 'clusters') {
+			// Standard 2D drag
+			if (layoutMode === 'force' || layoutMode === 'sticky_force' || layoutMode === 'clusters') {
 				draggedNode.fx = (draggedNode.fx !== undefined && draggedNode.fx !== null ? draggedNode.fx : draggedNode.x) + dpx;
 				draggedNode.fy = (draggedNode.fy !== undefined && draggedNode.fy !== null ? draggedNode.fy : draggedNode.y) + dpy;
 			} else {
-				// Free drag for static layouts (radial, dag, scatter)
+				// Free drag for static layouts (radial, dag, scatter, concentric, grid)
 				draggedNode.x = (draggedNode.x !== undefined ? draggedNode.x : 0) + dpx;
 				draggedNode.y = (draggedNode.y !== undefined ? draggedNode.y : 0) + dpy;
 			}
@@ -1533,6 +1710,12 @@
 				draggedNode.fx = null;
 				draggedNode.fy = null;
 				if (simulation) simulation.alphaTarget(0);
+			} else if (layoutMode === 'sticky_force') {
+				// Maintain dragged position! Keep fx/fy pinned
+				draggedNode.fx = draggedNode.x;
+				draggedNode.fy = draggedNode.y;
+				if (simulation) simulation.alphaTarget(0);
+				hasPinnedNodes = true;
 			}
 			draggedNode = null;
 			isDraggingNode = false;
@@ -1740,11 +1923,25 @@
 				onmouseleave={() => onHelpKey?.(null)}
 			>
 				<option value="force">Layout: Force 2D</option>
+				<option value="sticky_force">Layout: Sticky Force 2D</option>
 				<option value="radial">Layout: Radial Tree</option>
 				<option value="dag">Layout: Dependency Layers</option>
 				<option value="clusters">Layout: Role Clusters</option>
 				<option value="scatter">Layout: Risk ✕ Importance</option>
+				<option value="concentric">Layout: Concentric Rings</option>
+				<option value="grid">Layout: Structured Grid</option>
 			</select>
+
+			{#if hasPinnedNodes}
+				<button
+					class="zoom-btn active-help"
+					onclick={unpinAllNodes}
+					title="Release all pinned/frozen node coordinates"
+					style="width: auto; padding: 0 0.55rem; font-size: 0.72rem; font-weight: 600; font-family: var(--font-sans); background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4);"
+				>
+					Release Pinned ({localNodes.filter(n => n.fx !== null && n.fx !== undefined).length})
+				</button>
+			{/if}
 
 			<!-- Interactive Help Toggle -->
 			<button
