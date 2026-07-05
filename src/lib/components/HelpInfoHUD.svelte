@@ -210,6 +210,11 @@
 			description: 'Enlarges node text labels and their background pills on the canvas reactively.',
 			tip: 'Tip: Improves legibility from a distance.'
 		},
+		'label_color_picker': {
+			title: 'Choose Custom Label Color',
+			description: 'Opens a standard HTML color picker to change the text color of the node labels on the canvas.',
+			tip: 'Tip: Pick a color with high contrast relative to your background (e.g. bright yellow, green, or light gray).'
+		},
 		'focus_strip': {
 			title: 'Selected Node Strip',
 			description: 'Summarizes the currently focused node, including path, architecture role, risk level, and active focus mode.',

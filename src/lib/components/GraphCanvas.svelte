@@ -65,6 +65,7 @@
 	let gridCells = $state([]);
 	let labelScale = $state(1.0); // reactively adjust canvas font size
 	let hasPinnedNodes = $state(false);
+	let labelColorOverride = $state('#c4bdd4'); // default soft gray-purple label text color
 	
 	const roleColors = {
 		root: '#ffffff',
@@ -1005,7 +1006,7 @@
 
 				const textColor = isSelected
 					? '#ffffff'
-					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#b2f5ea' : '#c4bdd4');
+					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#b2f5ea' : labelColorOverride);
 
 				// Scale offsets and pill padding inversely by zoom level
 				const offset = (6 * labelScale) / activeTransform.k;
@@ -1958,6 +1959,20 @@
 			>
 				A+
 			</button>
+
+			<div
+				class="color-picker-wrapper"
+				title="Choose Custom Label Color"
+				onmouseenter={() => onHelpKey?.('label_color_picker')}
+				onmouseleave={() => onHelpKey?.(null)}
+				style="display: flex; align-items: center; justify-content: center; height: 1.65rem; padding: 0 0.25rem;"
+			>
+				<input
+					type="color"
+					bind:value={labelColorOverride}
+					style="width: 1.4rem; height: 1.4rem; border: 1.5px solid rgba(255, 255, 255, 0.15); border-radius: 4px; background: none; cursor: pointer; padding: 0;"
+				/>
+			</div>
 
 			<!-- Interactive Help Toggle -->
 			<button
