@@ -200,6 +200,16 @@
 			description: 'Resets the camera scale and center to fit the entire repository constellation perfectly inside the canvas.',
 			tip: 'Tip: Clears any active selection focus transitions.'
 		},
+		'label_size_down': {
+			title: 'Decrease Text Size',
+			description: 'Shrinks node text labels and their background pills on the canvas reactively.',
+			tip: 'Tip: Great for decluttering busy layouts in large repositories.'
+		},
+		'label_size_up': {
+			title: 'Increase Text Size',
+			description: 'Enlarges node text labels and their background pills on the canvas reactively.',
+			tip: 'Tip: Improves legibility from a distance.'
+		},
 		'focus_strip': {
 			title: 'Selected Node Strip',
 			description: 'Summarizes the currently focused node, including path, architecture role, risk level, and active focus mode.',

@@ -63,8 +63,9 @@
 	let layoutMode = $state('force'); // 'force', 'radial', 'dag', 'clusters', 'scatter', 'sticky_force', 'concentric', 'grid'
 	let showClusterHulls = $state(true); // toggleable cluster bubble overlay for 'force' and 'clusters' layouts
 	let gridCells = $state([]);
+	let labelScale = $state(1.0); // reactively adjust canvas font size
 	let hasPinnedNodes = $state(false);
-
+	
 	const roleColors = {
 		root: '#ffffff',
 		folder: '#64748b',
@@ -995,7 +996,7 @@
 			}
 
 			if (showLabel) {
-				const baseFontSize = isSelected ? 11 : isHovered ? 10 : 9.5;
+				const baseFontSize = (isSelected ? 11 : isHovered ? 10 : 9.5) * labelScale;
 				// Scale font size inversely by zoom level to keep on-screen size constant
 				const fontSize = baseFontSize / activeTransform.k;
 				ctx.font = isSelected
@@ -1007,16 +1008,16 @@
 					: isHovered ? '#f3f1f7' : (node.type === 'directory' ? '#b2f5ea' : '#c4bdd4');
 
 				// Scale offsets and pill padding inversely by zoom level
-				const offset = 6 / activeTransform.k;
+				const offset = (6 * labelScale) / activeTransform.k;
 				const labelX = node.px + radius + offset;
 				const labelY = node.py + (fontSize * 0.32);
 
 				// Draw dark pill background for ambient labels (not selected)
 				if (!isSelected) {
 					const metrics = ctx.measureText(node.name);
-					const padH = 3.5 / activeTransform.k;
-					const padV = 2.0 / activeTransform.k;
-					const cornerRadius = 3 / activeTransform.k;
+					const padH = (3.5 * labelScale) / activeTransform.k;
+					const padV = (2.0 * labelScale) / activeTransform.k;
+					const cornerRadius = (3 * labelScale) / activeTransform.k;
 					ctx.fillStyle = `rgba(8, 6, 18, ${0.58 * finalOpacity})`;
 					ctx.beginPath();
 					ctx.roundRect(
@@ -1031,7 +1032,7 @@
 
 				ctx.fillStyle = hexToRgba(textColor, finalOpacity);
 				ctx.shadowColor = 'rgba(0,0,0,0.8)';
-				ctx.shadowBlur = isSelected ? (6 / activeTransform.k) : 0;
+				ctx.shadowBlur = isSelected ? ((6 * labelScale) / activeTransform.k) : 0;
 				ctx.fillText(node.name, labelX, labelY);
 				ctx.shadowBlur = 0;
 			}
@@ -1936,6 +1937,27 @@
 			<button class="zoom-btn" onclick={() => handleZoom('in')} title="Zoom In" onmouseenter={() => onHelpKey?.('zoom_in')} onmouseleave={() => onHelpKey?.(null)}>+</button>
 			<button class="zoom-btn" onclick={() => handleZoom('out')} title="Zoom Out" onmouseenter={() => onHelpKey?.('zoom_out')} onmouseleave={() => onHelpKey?.(null)}>-</button>
 			<button class="zoom-btn" onclick={resetZoom} title="Fit Content" onmouseenter={() => onHelpKey?.('fit_content')} onmouseleave={() => onHelpKey?.(null)}>⛶</button>
+
+			<button
+				class="zoom-btn"
+				onclick={() => labelScale = Math.max(0.4, labelScale - 0.15)}
+				title="Decrease Label Text Size (Current: {Math.round(labelScale * 100)}%)"
+				onmouseenter={() => onHelpKey?.('label_size_down')}
+				onmouseleave={() => onHelpKey?.(null)}
+				style="font-size: 0.65rem; font-weight: 700; width: 2.1rem;"
+			>
+				A-
+			</button>
+			<button
+				class="zoom-btn"
+				onclick={() => labelScale = Math.min(2.5, labelScale + 0.15)}
+				title="Increase Label Text Size (Current: {Math.round(labelScale * 100)}%)"
+				onmouseenter={() => onHelpKey?.('label_size_up')}
+				onmouseleave={() => onHelpKey?.(null)}
+				style="font-size: 0.65rem; font-weight: 700; width: 2.1rem;"
+			>
+				A+
+			</button>
 
 			<!-- Interactive Help Toggle -->
 			<button
